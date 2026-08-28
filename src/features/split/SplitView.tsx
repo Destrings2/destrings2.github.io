@@ -9,6 +9,7 @@ import { Meter } from '@/components/Meter';
 import { useHousehold } from '@/store/household';
 import { useSession } from '@/store/session';
 import { InviteCard } from './InviteCard';
+import { PasswordCard } from './PasswordCard';
 import styles from './SplitView.module.css';
 
 export function SplitView() {
@@ -119,6 +120,8 @@ export function SplitView() {
       </Card>
 
       {!localOnly && <InviteCard />}
+
+      {!localOnly && <PasswordCard />}
 
       {!localOnly && (
         <Card title="Household">

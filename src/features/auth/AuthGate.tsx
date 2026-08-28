@@ -55,8 +55,19 @@ function Shell({ children }: { children: ReactNode }) {
 }
 
 function SignIn() {
-  const { sendMagicLink, busy, error, linkSentTo, pendingInvite, dismissError } = useSession();
+  const {
+    sendMagicLink,
+    signInWithPassword,
+    signUpWithPassword,
+    busy,
+    error,
+    linkSentTo,
+    pendingInvite,
+    dismissError,
+  } = useSession();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'link' | 'password'>('link');
 
   if (linkSentTo) {
     return (
@@ -68,6 +79,12 @@ function SignIn() {
       </Shell>
     );
   }
+
+  const submit = () => {
+    if (mode === 'link') sendMagicLink(email);
+    else signInWithPassword(email, password);
+  };
+  const ready = email.includes('@') && (mode === 'link' || password.length >= 6);
 
   return (
     <Shell>
@@ -87,20 +104,61 @@ function SignIn() {
                   setEmail(e.target.value);
                   if (error) dismissError();
                 }}
-                onKeyDown={(e) => e.key === 'Enter' && email.includes('@') && sendMagicLink(email)}
+                onKeyDown={(e) => e.key === 'Enter' && ready && submit()}
               />
             )}
           </Field>
-          <Button
-            variant="primary"
-            full
-            disabled={busy || !email.includes('@')}
-            onClick={() => sendMagicLink(email)}
-          >
-            {busy ? 'Sending…' : 'Email me a link'}
+
+          {mode === 'password' && (
+            <Field label="Password">
+              {(id) => (
+                <TextInput
+                  id={id}
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) dismissError();
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && ready && submit()}
+                />
+              )}
+            </Field>
+          )}
+
+          <Button variant="primary" full disabled={busy || !ready} onClick={submit}>
+            {busy ? 'Working…' : mode === 'link' ? 'Email me a link' : 'Sign in'}
           </Button>
+
+          {mode === 'password' && pendingInvite && (
+            <Button
+              full
+              disabled={busy || !ready}
+              onClick={() => signUpWithPassword(email, password)}
+            >
+              I&rsquo;m new — create my account
+            </Button>
+          )}
+
+          <div className={styles.switch}>
+            <button
+              className={styles.link}
+              onClick={() => {
+                setMode(mode === 'link' ? 'password' : 'link');
+                dismissError();
+              }}
+            >
+              {mode === 'link' ? 'Use a password instead' : 'Email me a link instead'}
+            </button>
+          </div>
+
           <p className={styles.note}>
-            No password. We send a link; opening it signs you in.
+            {mode === 'link'
+              ? 'We send a link; opening it signs you in.'
+              : pendingInvite
+                ? 'Sign in, or create an account if this is your first time.'
+                : 'For an account that already has a password set.'}
             {pendingInvite && (
               <>
                 {' '}

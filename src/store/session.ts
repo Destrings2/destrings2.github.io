@@ -37,6 +37,12 @@ interface SessionStore {
 
   start(): Promise<void>;
   sendMagicLink(email: string): Promise<void>;
+  /** Sign in with a password, for when email is rate-limited or unwanted. */
+  signInWithPassword(email: string, password: string): Promise<void>;
+  /** Create an account with a password. Only offered to someone holding an invite. */
+  signUpWithPassword(email: string, password: string): Promise<void>;
+  /** Set or change the password on the account already signed in. */
+  setPassword(password: string): Promise<boolean>;
   signOut(): Promise<void>;
   createHousehold(name: string, displayName: string, founderCode: string): Promise<void>;
   joinHousehold(code: string, displayName: string): Promise<void>;
@@ -121,6 +127,71 @@ export const useSession = create<SessionStore>((set, get) => ({
       set({ linkSentTo: email.trim() });
     } catch (error) {
       set({ error: message(error) });
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async signInWithPassword(email, password) {
+    set({ busy: true, error: null });
+    try {
+      const { error } = await supabase().auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) throw error;
+    } catch (error) {
+      set({ error: message(error) });
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  /**
+   * Creates an account without waiting for a link.
+   *
+   * Only reachable when the address bar carries an invite, so this is not a
+   * public sign-up: without a household invite the account it creates can do
+   * nothing at all. If the project still has email confirmation switched on,
+   * Supabase sends a confirmation and there is no session until it is clicked
+   * — which the screen says rather than appearing to hang.
+   */
+  async signUpWithPassword(email, password) {
+    set({ busy: true, error: null });
+    try {
+      const client = supabase();
+      const { data, error } = await client.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      if (!data.session) set({ linkSentTo: email.trim() });
+    } catch (error) {
+      set({ error: message(error) });
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  /**
+   * Gives the account a password without sending anything.
+   *
+   * Supabase's built-in mailer allows only a handful of messages an hour, so
+   * an app that can only be entered by magic link locks you out of your own
+   * testing. Setting a password from a session you already have needs no email
+   * at all, and the invite is what actually gates access here — not proof that
+   * you own the address.
+   */
+  async setPassword(password) {
+    set({ busy: true, error: null });
+    try {
+      const { error } = await supabase().auth.updateUser({ password });
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      set({ error: message(error) });
+      return false;
     } finally {
       set({ busy: false });
     }
