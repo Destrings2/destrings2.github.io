@@ -8,7 +8,7 @@
 }
 .opt {
   flex: 1;
-  min-height: 36px;
+  min-height: 40px;
   padding: 0 var(--s2);
   border-radius: var(--r-sm);
   color: var(--text-3);
@@ -23,7 +23,7 @@
 .opt:hover {
   color: var(--text);
 }
-.opt[aria-selected='true'] {
+.opt[aria-checked='true'] {
   background: var(--text);
   color: var(--ink);
   font-weight: 700;

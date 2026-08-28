@@ -89,7 +89,6 @@ interface HouseholdStore {
     occurrence: OccurrenceKey,
     at: { personId: PersonId; day: number; at: number },
   ): void;
-  assign(weekKey: string, occurrence: OccurrenceKey, personId: PersonId): void;
   skip(weekKey: string, occurrence: OccurrenceKey): void;
   unskip(weekKey: string, occurrence: OccurrenceKey): void;
   automate(weekKey: string, occurrence: OccurrenceKey): void;
@@ -104,7 +103,8 @@ interface HouseholdStore {
   setDailyCap(mins: number): void;
   setTint(tint: TintMode): void;
 
-  addChore(input: { roomId: RoomId; name: string; mins: number; cadence: Cadence }): void;
+  /** Returns the new chore's id, so the caller can point at what it added. */
+  addChore(input: { roomId: RoomId; name: string; mins: number; cadence: Cadence }): string;
   toggleChore(id: string): void;
   removeChore(id: string): void;
 
@@ -338,21 +338,6 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
       });
     },
 
-    assign(weekKeyValue, occurrence, personId) {
-      commit({ kind: 'override', weekKey: weekKeyValue, occurrence }, (draft) => {
-        const week = draft.weeks[weekKeyValue];
-        if (!week) return;
-        const existing = week.overrides[occurrence];
-        week.overrides[occurrence] = {
-          personId,
-          day: existing?.day ?? null,
-          at: existing?.at ?? null,
-          skip: false,
-        };
-        rebuild(draft, weekKeyValue);
-      });
-    },
-
     skip(weekKeyValue, occurrence) {
       commit({ kind: 'override', weekKey: weekKeyValue, occurrence }, (draft) => {
         const week = draft.weeks[weekKeyValue];
@@ -468,6 +453,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
         draft.chores.push(chore);
         rebuildFuture(draft);
       });
+      return id;
     },
 
     toggleChore(id) {

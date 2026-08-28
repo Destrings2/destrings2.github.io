@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Meter } from '@/components/Meter';
@@ -16,9 +17,15 @@ export function ListView({ week }: { week: Week }) {
   const state = useHousehold((s) => s.state);
   const toggleDone = useHousehold((s) => s.toggleDone);
   const reshuffle = useHousehold((s) => s.reshuffle);
-  const { whoFilter, hideDone, setWhoFilter, toggleHideDone, setTaskSheet } = useUi();
+  const { whoFilter, hideDone, setWhoFilter, toggleHideDone, setTaskSheet, setTab } = useUi();
+
+  // Reshuffling throws away every hand placement, skip and pin for the week,
+  // so it asks first — and only makes a fuss when there is something to lose.
+  const [confirmShuffle, setConfirmShuffle] = useState(false);
+  const overrides = Object.keys(state.weeks[week.key]?.overrides ?? {}).length;
 
   const today = dayIndexOf(new Date());
+  const totalFree = week.week.meta.free.reduce((sum, f) => sum + f, 0);
   const unplaced = week.week.plan.filter((e) => !e.skipped && !e.personId);
   const skipped = week.week.plan.filter((e) => e.skipped);
 
@@ -89,6 +96,20 @@ export function ListView({ week }: { week: Week }) {
         </div>
       </Card>
 
+      {totalFree === 0 && (
+        <Card accent title="No hours to work with">
+          <p className={styles.hint}>
+            Nothing can be scheduled until someone says when they&rsquo;re free, so every job below
+            is waiting. Paint a few hours under Time and the week fills itself in.
+          </p>
+          <div style={{ marginTop: 'var(--s3)' }}>
+            <Button size="sm" onClick={() => setTab('time')}>
+              Go to Time
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {unplaced.length > 0 && (
         <Card accent title={`${unplaced.length} didn't fit`} aside="tap to place">
           {unplaced.map((entry) => (
@@ -144,9 +165,31 @@ export function ListView({ week }: { week: Week }) {
         </Card>
       )}
 
-      <Button full onClick={() => reshuffle(week.key)}>
-        Reshuffle the week
-      </Button>
+      {confirmShuffle ? (
+        <Card accent title="Reshuffle the week?">
+          <p className={styles.hint}>
+            This hands the whole week back to the planner. The {overrides} change
+            {overrides === 1 ? '' : 's'} you made by hand — placements, skips and pins — will be
+            undone, and it can&rsquo;t be taken back.
+          </p>
+          <div className={styles.confirm}>
+            <Button
+              variant="danger"
+              onClick={() => {
+                reshuffle(week.key);
+                setConfirmShuffle(false);
+              }}
+            >
+              Reshuffle
+            </Button>
+            <Button onClick={() => setConfirmShuffle(false)}>Keep it as it is</Button>
+          </div>
+        </Card>
+      ) : (
+        <Button full onClick={() => (overrides ? setConfirmShuffle(true) : reshuffle(week.key))}>
+          Reshuffle the week
+        </Button>
+      )}
     </>
   );
 }

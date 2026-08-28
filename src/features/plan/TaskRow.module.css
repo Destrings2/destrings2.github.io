@@ -51,8 +51,8 @@
 }
 .tick {
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
+  width: var(--tap);
+  height: var(--tap);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   color: var(--text);

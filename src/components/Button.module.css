@@ -32,7 +32,7 @@
 }
 
 .sm {
-  min-height: 34px;
+  min-height: 40px;
   padding: 0 var(--s3);
   font-size: var(--fs-2xs);
 }

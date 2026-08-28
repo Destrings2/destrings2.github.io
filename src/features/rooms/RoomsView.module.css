@@ -74,6 +74,8 @@
   position: relative;
   width: 36px;
   height: 21px;
+  /* The switch is drawn small; the target it presents is not. */
+  outline-offset: 12px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-full);
   background: var(--surface-2);
@@ -97,14 +99,19 @@
   background: var(--p2);
   border-color: var(--p2);
 }
+.rotation::after {
+  content: '';
+  position: absolute;
+  inset: -12px -6px;
+}
 .rotation[aria-checked='true'] i {
   translate: 15px 0;
   background: var(--ink);
 }
 .remove {
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
+  width: var(--tap);
+  height: var(--tap);
   border-radius: var(--r-sm);
   color: var(--text-3);
   font-size: 18px;
@@ -173,4 +180,39 @@
   font-size: var(--fs-2xs);
   line-height: 1.7;
   color: var(--text-3);
+}
+
+.warn {
+  margin: var(--s2) 0 0;
+  padding: var(--s2) var(--s3);
+  border-left: 2px solid var(--p1);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--p1-wash);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.7;
+  color: var(--text-2);
+}
+.added {
+  margin: 0 0 var(--s2);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--p2);
+}
+/* Marks the row that has just appeared, so the list says where it went. */
+.fresh {
+  animation: settle 1.6s var(--ease);
+}
+@keyframes settle {
+  from {
+    background: var(--p2-wash, rgba(95, 163, 148, 0.16));
+  }
+  to {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fresh {
+    animation: none;
+  }
 }

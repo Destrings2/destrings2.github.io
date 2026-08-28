@@ -12,7 +12,7 @@ import { useProperty } from '@/store/property';
 import { choreById, roomNameIn } from '@/store/selectors';
 import { useUi } from '@/store/ui';
 import styles from './TaskDetail.module.css';
-import { nearestOffered, TIMES } from './times';
+import { timesFor } from './times';
 
 export function TaskDetail() {
   const taskSheet = useUi((s) => s.taskSheet);
@@ -50,6 +50,7 @@ interface FormProps {
 
 function TaskForm({ entry, chore, weekKey, done }: FormProps) {
   const state = useHousehold((s) => s.state);
+  const week = useWeek();
   const { toggleDone, place, skip, unskip, automate } = useHousehold();
   const { setTaskSheet, setTab, openRoomDetail } = useUi();
   const plan = useProperty((s) => s.plan);
@@ -59,10 +60,29 @@ function TaskForm({ entry, chore, weekKey, done }: FormProps) {
     () => entry.personId ?? state.people[0]?.id ?? null,
   );
   const [day, setDay] = useState(() => entry.day);
-  const [at, setAt] = useState(() => nearestOffered(entry.at ?? 19 * 60));
+  const [at, setAt] = useState(() => entry.at ?? 19 * 60);
 
   const close = () => setTaskSheet(null);
   const overridden = overrides[entry.key] != null;
+
+  const cap = state.settings.dailyCap;
+
+  // A job the planner can never place, however the week falls: it is longer on
+  // its own than a whole day is allowed to hold. Saying so beats leaving it in
+  // "didn't fit" forever with no reason given.
+  const overCap = entry.mins > cap;
+
+  // What the chosen person already holds that day, this job aside. Placing by
+  // hand is allowed to breach the cap — it is an instruction, not a guess —
+  // but it should not do so silently.
+  const dayLoad = week.week.plan.reduce(
+    (sum, e) =>
+      e.personId === person && e.day === day && !e.skipped && e.key !== entry.key
+        ? sum + e.mins
+        : sum,
+    0,
+  );
+  const wouldBreachCap = !overCap && dayLoad + entry.mins > cap;
 
   const status = entry.skipped
     ? 'skipped'
@@ -92,6 +112,19 @@ function TaskForm({ entry, chore, weekKey, done }: FormProps) {
         {status ? ` · ${status}` : ''}
         {entry.at != null ? ` · ${DAYS[entry.day]} ${hhmm(entry.at)}` : ''}
       </p>
+
+      {entry.skipped ? null : overCap ? (
+        <p className={styles.warn}>
+          At {formatMins(entry.mins)} this is longer than a whole day&rsquo;s allowance of{' '}
+          {formatMins(cap)}, so the planner can never fit it. Place it by hand below, shorten it, or
+          raise the daily cap in Settings.
+        </p>
+      ) : status === "didn't fit" ? (
+        <p className={styles.warn}>
+          There was no free stretch long enough this week. Place it by hand below, or free up more
+          hours under Time.
+        </p>
+      ) : null}
 
       <div className={styles.row}>
         <Button variant="primary" onClick={() => toggleDone(weekKey, entry.key)}>
@@ -151,7 +184,7 @@ function TaskForm({ entry, chore, weekKey, done }: FormProps) {
               <div>
                 <span className={styles.label}>Time</span>
                 <Select value={at} onChange={(e) => setAt(Number(e.target.value))}>
-                  {TIMES.map((minutes) => (
+                  {timesFor(entry.at).map((minutes) => (
                     <option key={minutes} value={minutes}>
                       {hhmm(minutes)}
                     </option>
@@ -170,6 +203,12 @@ function TaskForm({ entry, chore, weekKey, done }: FormProps) {
                 Apply
               </Button>
             </div>
+            {(wouldBreachCap || overCap) && person && (
+              <p className={styles.note}>
+                {DAYS[day]} would then hold {formatMins(dayLoad + entry.mins)}, over the{' '}
+                {formatMins(cap)} you set as a day&rsquo;s most. Placing by hand overrides the cap.
+              </p>
+            )}
           </div>
         </Card>
       )}

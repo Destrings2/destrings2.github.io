@@ -23,6 +23,13 @@ export function SplitView() {
     return { name: person.name, pct: own ? Math.round((assigned / own) * 100) : 0 };
   });
 
+  // Whether the shares actually came out level. The sentence below used to
+  // claim they had regardless, which read as a lie the moment a job was placed
+  // by hand or the ledger leant the week one way.
+  const level =
+    givenUp.length < 2 ||
+    Math.max(...givenUp.map((g) => g.pct)) - Math.min(...givenUp.map((g) => g.pct)) <= 1;
+
   return (
     <>
       <Card title="This week">
@@ -46,28 +53,27 @@ export function SplitView() {
           </div>
         ))}
         <p className={styles.note}>
-          {totalFree ? (
+          {!totalFree ? (
+            'Add some free time under Time first.'
+          ) : givenUp.length === 1 ? (
             <>
-              {givenUp.length === 1 ? (
-                <>
-                  You give up <b>{givenUp[0]!.pct}%</b> of your own free time.
-                </>
-              ) : (
-                <>
-                  You each give up{' '}
-                  {givenUp.map((entry, i) => (
-                    <span key={entry.name}>
-                      {i > 0 && (i === givenUp.length - 1 ? ' and ' : ', ')}
-                      <b>{entry.pct}%</b>
-                      {givenUp.length > 2 ? ` (${entry.name})` : ''}
-                    </span>
-                  ))}{' '}
-                  of your own free time. Those being equal is what fair means here.
-                </>
-              )}
+              You give up <b>{givenUp[0]!.pct}%</b> of your own free time.
             </>
           ) : (
-            'Add some free time under Time first.'
+            <>
+              {level ? 'You each give up ' : 'This week you give up '}
+              {givenUp.map((entry, i) => (
+                <span key={entry.name}>
+                  {i > 0 && (i === givenUp.length - 1 ? ' and ' : ', ')}
+                  <b>{entry.pct}%</b>
+                  {level && givenUp.length === 2 ? '' : ` (${entry.name})`}
+                </span>
+              ))}{' '}
+              of your own free time.{' '}
+              {level
+                ? 'Those being equal is what fair means here.'
+                : 'Equal shares are what fair means here, so this week is out of true — hand-placed jobs and the running total both pull it about. It evens out as the weeks go by.'}
+            </>
           )}
         </p>
       </Card>

@@ -43,6 +43,19 @@ export function RoomsView() {
   const [name, setName] = useState('');
   const [mins, setMins] = useState('10');
   const [cadence, setCadence] = useState<Cadence>('weekly');
+  /** The job just added, so the list can say where it went. */
+  const [justAdded, setJustAdded] = useState<{ id: string; name: string } | null>(null);
+  const addedRef = useRef<HTMLDivElement>(null);
+
+  const dailyCap = state.settings.dailyCap;
+  const tooLong = Number(mins) > dailyCap;
+
+  // A new job is appended to a list that may be long enough to hide it. Bring
+  // it into view so adding one has a visible result rather than a counter that
+  // ticks somewhere off screen.
+  useEffect(() => {
+    if (justAdded) addedRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [justAdded]);
 
   const roomId: RoomId = openRoom;
   const room = plan.rooms.find((r) => r.slug === openRoom);
@@ -52,7 +65,8 @@ export function RoomsView() {
   function submit() {
     const trimmed = name.trim();
     if (!trimmed) return;
-    addChore({ roomId, name: trimmed, mins: Math.max(1, Number(mins) || 10), cadence });
+    const added = addChore({ roomId, name: trimmed, mins: Math.max(1, Number(mins) || 10), cadence });
+    setJustAdded({ id: added, name: trimmed });
     setName('');
     setMins('10');
   }
@@ -121,6 +135,13 @@ export function RoomsView() {
                 )}
               </Field>
             </div>
+            {tooLong && (
+              <p className={styles.warn}>
+                Longer than the {formatMins(dailyCap)} a single day is allowed to hold, so the
+                planner won&rsquo;t be able to place it. Split it up, or raise the daily cap in
+                Settings.
+              </p>
+            )}
             <div className={styles.addRow}>
               <Field label="How often">
                 {(id) => (
@@ -149,9 +170,21 @@ export function RoomsView() {
           </button>
         )}
 
+        {justAdded && <p className={styles.added}>Added &ldquo;{justAdded.name}&rdquo;.</p>}
+
         {here.length === 0 && !adding && <p className={styles.hint}>Nothing here yet.</p>}
         {here.map((chore) => (
-          <div key={chore.id} className={`${styles.chore} ${chore.enabled ? '' : styles.off}`}>
+          <div
+            key={chore.id}
+            ref={chore.id === justAdded?.id ? addedRef : undefined}
+            className={[
+              styles.chore,
+              chore.enabled ? '' : styles.off,
+              chore.id === justAdded?.id ? styles.fresh : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             <button
               role="switch"
               className={styles.rotation}

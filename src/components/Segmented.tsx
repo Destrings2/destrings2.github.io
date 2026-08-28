@@ -22,15 +22,15 @@ export function Segmented<T extends string>({
 }: Props<T>) {
   return (
     <div
-      role="tablist"
+      role="radiogroup"
       aria-label={label}
       className={[styles.seg, className].filter(Boolean).join(' ')}
     >
       {options.map((option) => (
         <button
           key={option.value}
-          role="tab"
-          aria-selected={option.value === value}
+          role="radio"
+          aria-checked={option.value === value}
           className={styles.opt}
           onClick={() => onChange(option.value)}
         >
