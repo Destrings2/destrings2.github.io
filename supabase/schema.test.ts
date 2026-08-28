@@ -135,7 +135,7 @@ describe('starting and joining a household', () => {
   it('lets a second person join with it', async () => {
     const joined = await db.as(bob, async () => {
       const [row] = await q<{ join_household: string }>(
-        `select join_household($1, 'Bob', '#5FA394') as join_household`,
+        `select join_household($1, 'Bob') as join_household`,
         [code],
       );
       return row!.join_household;
@@ -705,5 +705,54 @@ describe('invite-only', () => {
       q(`select code from household_invite_link($1)`, [household]),
     );
     expect(rows).toEqual([]);
+  });
+});
+
+describe('accent colours', () => {
+  it('gives a joining member a colour nobody else has', async () => {
+    const household = await startHousehold(alice, 'Colours', 'Alice');
+    const palette = ['#E8B93E', '#5FA394', '#B47CC7'];
+
+    // Alice took the first when she created it.
+    await db.as(alice, () =>
+      q(`update members set colour = $1 where household_id = $2`, [palette[0], household]),
+    );
+
+    const code = await db.as(alice, async () => {
+      const [row] = await q<{ create_invite: string }>(
+        `select create_invite($1) as create_invite`,
+        [household],
+      );
+      return row!.create_invite;
+    });
+    await db.as(bob, () => q(`select join_household($1, 'Bob', $2)`, [code, palette]));
+
+    const colours = await db.as(alice, () =>
+      q<{ colour: string }>(`select colour from members where household_id = $1`, [household]),
+    );
+    expect(new Set(colours.map((c) => c.colour.toUpperCase())).size).toBe(colours.length);
+    expect(colours.map((c) => c.colour.toUpperCase())).toContain('#5FA394');
+  });
+
+  it('falls back rather than failing when every colour is taken', async () => {
+    const household = await startHousehold(alice, 'Crowded', 'Alice');
+    const code = await db.as(alice, async () => {
+      const [row] = await q<{ create_invite: string }>(
+        `select create_invite($1) as create_invite`,
+        [household],
+      );
+      return row!.create_invite;
+    });
+    // Offer only the colour Alice already has.
+    const [alicesColour] = await db.as(alice, () =>
+      q<{ colour: string }>(`select colour from members where household_id = $1`, [household]),
+    );
+    await db.as(bob, () =>
+      q(`select join_household($1, 'Bob', $2)`, [code, [alicesColour!.colour]]),
+    );
+    const members = await db.as(alice, () =>
+      q(`select id from members where household_id = $1`, [household]),
+    );
+    expect(members).toHaveLength(2);
   });
 });

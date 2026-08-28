@@ -1,0 +1,73 @@
+.person {
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.person:first-child {
+  padding-top: 0;
+}
+.person:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.swatch {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  border: 2px solid transparent;
+  display: grid;
+  place-items: center;
+  transition:
+    transform var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.swatch:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.swatch::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: var(--r-sm);
+  background: var(--tone);
+}
+/* The tick sits above the fill, in near-black, which every accent carries. */
+.swatch span {
+  position: relative;
+  z-index: 1;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1;
+}
+.swatch[aria-pressed='true'] {
+  border-color: var(--text);
+}
+.swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.label {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: var(--s3) 0 0;
+}
+
+.taken {
+  margin: var(--s2) 0 0;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}

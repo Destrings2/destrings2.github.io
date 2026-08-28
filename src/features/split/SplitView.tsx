@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { Field, Range, TextInput } from '@/components/Field';
+import { Range } from '@/components/Field';
 import { averageWeekly } from '@/domain/totals';
 import { formatMins } from '@/domain/time';
 import { useWeek } from '@/hooks/useWeek';
@@ -9,19 +9,19 @@ import { Meter } from '@/components/Meter';
 import { useHousehold } from '@/store/household';
 import { useSession } from '@/store/session';
 import { InviteCard } from './InviteCard';
+import { PeopleCard } from './PeopleCard';
 import { PasswordCard } from './PasswordCard';
 import styles from './SplitView.module.css';
 
 export function SplitView() {
   const state = useHousehold((s) => s.state);
-  const { setDailyCap, resetLedger, resetAll, renamePeople, isLocalOnly } = useHousehold();
+  const { setDailyCap, resetLedger, resetAll, isLocalOnly } = useHousehold();
   const writeFailed = useHousehold((s) => s.writeFailed);
   const localOnly = isLocalOnly();
   const signOut = useSession((s) => s.signOut);
   const householdName = useSession((s) => s.household?.name ?? null);
   const week = useWeek();
 
-  const [names, setNames] = useState(() => state.people.map((p) => p.name));
   const [confirming, setConfirming] = useState(false);
 
   const free = week.week.meta.free;
@@ -138,28 +138,7 @@ export function SplitView() {
         </Card>
       )}
 
-      <Card title="Names">
-        <div className={styles.names}>
-          {state.people.map((person, index) => (
-            <Field key={person.id} label={`Person ${index + 1}`}>
-              {(id) => (
-                <TextInput
-                  id={id}
-                  value={names[index] ?? ''}
-                  onChange={(e) => {
-                    const next = [...names];
-                    next[index] = e.target.value;
-                    setNames(next);
-                  }}
-                />
-              )}
-            </Field>
-          ))}
-        </div>
-        <Button full onClick={() => renamePeople(names)}>
-          Save names
-        </Button>
-      </Card>
+      <PeopleCard />
 
       <Card title="Settings">
         <div className={styles.kv}>

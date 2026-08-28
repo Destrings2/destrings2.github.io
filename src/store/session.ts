@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import { EXAMPLE_HOME_DOCUMENT } from '@/data/exampleHome';
+import { ACCENTS } from '@/data/palette';
 import { SEED_CHORES } from '@/data/seedChores';
 import {
   appUrl,
@@ -51,8 +52,6 @@ interface SessionStore {
   inviteLink(): Promise<string | null>;
   dismissError(): void;
 }
-
-const PALETTE = ['#E8B93E', '#5FA394', '#B47CC7', '#D97C5A'];
 
 function message(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -210,7 +209,7 @@ export const useSession = create<SessionStore>((set, get) => ({
         household_name: name.trim(),
         display_name: displayName.trim(),
         invite_code: founderCode.trim().toUpperCase(),
-        colour: PALETTE[0],
+        colour: ACCENTS[0]!.hex,
       });
       if (error) throw error;
 
@@ -251,7 +250,8 @@ export const useSession = create<SessionStore>((set, get) => ({
       const { error } = await supabase().rpc('join_household', {
         invite_code: code.trim().toUpperCase(),
         display_name: displayName.trim(),
-        colour: PALETTE[1],
+        // The database picks the first of these nobody in the household has.
+        palette: ACCENTS.map((a) => a.hex),
       });
       if (error) throw error;
       clearInviteFromUrl();

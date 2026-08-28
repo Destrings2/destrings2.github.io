@@ -6,6 +6,7 @@ import {
   gridFrom,
   type GridSpec,
 } from '@/data/defaultAvailability';
+import { ACCENTS, nextFreeAccent } from '@/data/palette';
 import { seedToChores } from '@/data/seedChores';
 import { buildPlan } from '@/domain/scheduler';
 import { HN, weekIndex, weekKey } from '@/domain/time';
@@ -15,14 +16,12 @@ import { createOutbox, type Outbox } from './outbox';
 import { indexedDbRepository, type Change, type Repository } from './repository';
 import type { HouseholdState, StoredWeek, TintMode } from './types';
 
-const PALETTE = ['#E8B93E', '#5FA394', '#B47CC7', '#D97C5A'];
-
 export function blankState(): HouseholdState {
   return {
     version: 1,
     people: [
-      { id: 'a', name: 'Me', colour: PALETTE[0]! },
-      { id: 'b', name: 'Partner', colour: PALETTE[1]! },
+      { id: 'a', name: 'Me', colour: ACCENTS[0]!.hex },
+      { id: 'b', name: 'Partner', colour: ACCENTS[1]!.hex },
     ],
     chores: seedToChores(),
     availability: {
@@ -90,6 +89,10 @@ interface HouseholdStore {
   automate(weekKey: string, occurrence: OccurrenceKey): void;
 
   renamePeople(names: string[]): void;
+  /** Change one person's accent colour. */
+  setPersonColour(personId: PersonId, colour: string): void;
+  /** The colour a person would get if they wanted one nobody else has. */
+  freeColour(exceptPersonId?: PersonId): string;
   setAvailability(personId: PersonId, grid: boolean[][]): void;
   applyPreset(personId: PersonId, spec: GridSpec | null): void;
   setDailyCap(mins: number): void;
@@ -385,6 +388,20 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
         });
         draft.named = true;
       });
+    },
+
+    setPersonColour(personId, colour) {
+      commit({ kind: 'members' }, (draft) => {
+        const person = draft.people.find((p) => p.id === personId);
+        if (person) person.colour = colour;
+      });
+    },
+
+    freeColour(exceptPersonId) {
+      const taken = get()
+        .state.people.filter((p) => p.id !== exceptPersonId)
+        .map((p) => p.colour);
+      return nextFreeAccent(taken);
     },
 
     setAvailability(personId, grid) {
