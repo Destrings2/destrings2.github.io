@@ -12,6 +12,7 @@ import { useHousehold } from '@/store/household';
 import { useProperty } from '@/store/property';
 import { loadKey, roomNameIn, roomOptions } from '@/store/selectors';
 import { useUi } from '@/store/ui';
+import { ChoreEditor } from './ChoreEditor';
 import styles from './RoomsView.module.css';
 
 export function RoomsView() {
@@ -40,6 +41,7 @@ export function RoomsView() {
   }, [openRoom]);
 
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [mins, setMins] = useState('10');
   const [cadence, setCadence] = useState<Cadence>('weekly');
@@ -65,7 +67,12 @@ export function RoomsView() {
   function submit() {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const added = addChore({ roomId, name: trimmed, mins: Math.max(1, Number(mins) || 10), cadence });
+    const added = addChore({
+      roomId,
+      name: trimmed,
+      mins: Math.max(1, Number(mins) || 10),
+      cadence,
+    });
     setJustAdded({ id: added, name: trimmed });
     setName('');
     setMins('10');
@@ -199,14 +206,19 @@ export function RoomsView() {
             >
               <i />
             </button>
-            <div className={styles.body}>
+            <button
+              className={styles.body}
+              aria-expanded={editing === chore.id}
+              aria-label={`Edit ${chore.name}`}
+              onClick={() => setEditing(editing === chore.id ? null : chore.id)}
+            >
               <span>{chore.name}</span>
               <small>
                 {formatMins(chore.mins)} · {CADENCE[chore.cadence].label}
                 {chore.grim ? ' · rotates' : ''}
                 {chore.noisy ? ' · not late' : ''}
               </small>
-            </div>
+            </button>
             <button
               className={styles.remove}
               onClick={() => removeChore(chore.id)}
@@ -214,10 +226,10 @@ export function RoomsView() {
             >
               ×
             </button>
+            {editing === chore.id && <ChoreEditor chore={chore} onDone={() => setEditing(null)} />}
           </div>
         ))}
       </Card>
-
     </>
   );
 }

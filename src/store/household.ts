@@ -9,7 +9,7 @@ import {
 import { ACCENTS, nextFreeAccent } from '@/data/palette';
 import { seedToChores } from '@/data/chores';
 import { STARTER_CHORES } from '@/data/starterChores';
-import { buildPlan } from '@/domain/scheduler';
+import { buildPlan, freeMinutes } from '@/domain/scheduler';
 import { HN, weekIndex, weekKey } from '@/domain/time';
 import { DEFAULT_CONFIG } from '@/domain/types';
 import type { Cadence, Chore, OccurrenceKey, PersonId, RoomId, WeekPlan } from '@/domain/types';
@@ -56,6 +56,21 @@ function reconcile(state: HouseholdState): HouseholdState {
   const keepFrom = Date.now() - 84 * 864e5;
   for (const key of Object.keys(next.weeks)) {
     if (new Date(`${key}T12:00:00`).getTime() < keepFrom) delete next.weeks[key];
+  }
+
+  // A frozen week names the jobs it was built from, so deleting one leaves
+  // entries behind pointing at a job that no longer exists. They rendered as
+  // a row with a duration and no name, and counted towards the week's total.
+  const alive = new Set(next.chores.map((chore) => chore.id));
+  for (const week of Object.values(next.weeks)) {
+    const kept = week.plan.filter((entry) => alive.has(entry.choreId));
+    if (kept.length === week.plan.length) continue;
+    const keys = new Set(kept.map((entry) => entry.key));
+    week.plan = kept;
+    week.done = week.done.filter((key) => keys.has(key));
+    for (const key of Object.keys(week.overrides)) {
+      if (!keys.has(key)) delete week.overrides[key];
+    }
   }
   return next;
 }
@@ -105,6 +120,11 @@ interface HouseholdStore {
 
   /** Returns the new chore's id, so the caller can point at what it added. */
   addChore(input: { roomId: RoomId; name: string; mins: number; cadence: Cadence }): string;
+  /** Change a job already on the list. Anything not named is left alone. */
+  editChore(
+    id: string,
+    patch: Partial<Pick<Chore, 'name' | 'mins' | 'cadence' | 'roomId' | 'noisy' | 'grim'>>,
+  ): void;
   toggleChore(id: string): void;
   removeChore(id: string): void;
 
@@ -138,6 +158,9 @@ function outboxKey(change: Change): string {
 }
 
 export const useHousehold = create<HouseholdStore>((set, get) => {
+  /** Weeks the last mutation re-planned. Filled synchronously by commit. */
+  let touched: string[] = [];
+
   async function refresh() {
     const fresh = await repository.load();
     if (!fresh) return;
@@ -154,6 +177,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     }
 
     const next = reconcile(fresh);
+    const restaled = resyncWeeks(next);
     // Postgres broadcasts a change to everyone subscribed, including whoever
     // made it, so every edit came back as an echo and replaced the whole
     // state with an identical copy. Nothing was wrong with the result, but
@@ -162,6 +186,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     // flicker was. Same state, same objects, no render.
     if (JSON.stringify(next) === JSON.stringify(get().state)) return;
     set({ state: next });
+    persistWeeks(restaled);
   }
 
   function ensureOutbox(): Outbox {
@@ -229,12 +254,56 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
   }
 
   /** Any change to the inputs invalidates every frozen week from now on. */
-  function rebuildFuture(draft: HouseholdState) {
+  function rebuildFuture(draft: HouseholdState): string[] {
     const today = weekKey(new Date());
+    const touched: string[] = [];
     for (const key of Object.keys(draft.weeks)) {
-      if (key >= today) rebuild(draft, key);
+      if (key < today) continue;
+      rebuild(draft, key);
+      touched.push(key);
     }
-    if (!draft.weeks[today]) freeze(draft, today);
+    if (!draft.weeks[today]) {
+      freeze(draft, today);
+      touched.push(today);
+    }
+    return touched;
+  }
+
+  /**
+   * A week is planned once and stored, so it carries the free time each person
+   * had when it was built. Someone joining, or painting their hours on their
+   * own phone, changes that — and the write that carried it named only the
+   * member or the grid, never the plan built from them. So the other device
+   * read a week still split for whoever was there before: one person with the
+   * lot, the newcomer with nothing, and the rest under "didn't fit".
+   *
+   * Any week ahead whose stored free time disagrees with the free time people
+   * actually have is re-planned from what is true now. Ticks and hand
+   * placements survive, because rebuild carries them.
+   */
+  function resyncWeeks(draft: HouseholdState): string[] {
+    const today = weekKey(new Date());
+    const now = draft.people.map((person) => freeMinutes(draft.availability[person.id] ?? []));
+    const stale: string[] = [];
+
+    for (const [key, week] of Object.entries(draft.weeks)) {
+      if (key < today) continue;
+      const was = week.meta.free;
+      if (was.length === now.length && was.every((mins, i) => mins === now[i])) continue;
+      rebuild(draft, key);
+      stale.push(key);
+    }
+    return stale;
+  }
+
+  /**
+   * A change to the jobs re-plans the weeks that have not happened yet, and
+   * those plans are stored. Writing only the job left the stored week naming
+   * one that had been deleted, which the other device then read back as a row
+   * with a duration and no name.
+   */
+  function persistWeeks(keys: string[]) {
+    for (const key of keys) persist({ kind: 'week', weekKey: key });
   }
 
   return {
@@ -251,9 +320,13 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
       set({ status: 'loading' });
       const loaded = await repository.load();
       const state = loaded ? reconcile(loaded) : blankState();
+      const restaled = resyncWeeks(state);
       set({ state, status: 'ready' });
       // Make sure this week exists before anything renders against it.
       get().currentWeek();
+      // Whatever had to be re-planned is written back, so the other device
+      // stops reading the version that disagrees.
+      persistWeeks(restaled);
 
       // Someone else's edit lands: refetch rather than patch a cache by hand.
       // But never on top of an edit of our own that has not been sent yet —
@@ -424,8 +497,9 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     setAvailability(personId, grid) {
       commit({ kind: 'availability', personId }, (draft) => {
         draft.availability[personId] = grid;
-        rebuildFuture(draft);
+        touched = rebuildFuture(draft);
       });
+      persistWeeks(touched);
     },
 
     applyPreset(personId, spec) {
@@ -439,15 +513,17 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
             day.map((on, h) => on || (add[d]?.[h] ?? false)),
           );
         }
-        rebuildFuture(draft);
+        touched = rebuildFuture(draft);
       });
+      persistWeeks(touched);
     },
 
     setDailyCap(mins) {
       commit({ kind: 'settings' }, (draft) => {
         draft.settings.dailyCap = mins;
-        rebuildFuture(draft);
+        touched = rebuildFuture(draft);
       });
+      persistWeeks(touched);
     },
 
     setTint(tint) {
@@ -472,24 +548,37 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
           enabled: true,
         };
         draft.chores.push(chore);
-        rebuildFuture(draft);
+        touched = rebuildFuture(draft);
       });
+      persistWeeks(touched);
       return id;
+    },
+
+    editChore(id, patch) {
+      commit({ kind: 'chore', id, op: 'update' }, (draft) => {
+        const chore = draft.chores.find((c) => c.id === id);
+        if (!chore) return;
+        Object.assign(chore, patch);
+        touched = rebuildFuture(draft);
+      });
+      persistWeeks(touched);
     },
 
     toggleChore(id) {
       commit({ kind: 'chore', id, op: 'update' }, (draft) => {
         const chore = draft.chores.find((c) => c.id === id);
         if (chore) chore.enabled = !chore.enabled;
-        rebuildFuture(draft);
+        touched = rebuildFuture(draft);
       });
+      persistWeeks(touched);
     },
 
     removeChore(id) {
       commit({ kind: 'chore', id, op: 'remove' }, (draft) => {
         draft.chores = draft.chores.filter((c) => c.id !== id);
-        rebuildFuture(draft);
+        touched = rebuildFuture(draft);
       });
+      persistWeeks(touched);
     },
 
     resetLedger() {

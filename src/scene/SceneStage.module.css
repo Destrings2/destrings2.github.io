@@ -126,6 +126,12 @@
   color: var(--text-3);
   pointer-events: none;
 }
+.legendNote {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid var(--line);
+  font-style: italic;
+}
 .legend i {
   display: inline-block;
   width: 8px;
@@ -147,10 +153,10 @@
     display: none;
   }
   .tintSeg {
-  background: rgba(20, 23, 26, 0.82);
-}
+    background: rgba(20, 23, 26, 0.82);
+  }
 
-.legend {
+  .legend {
     top: auto;
     bottom: var(--s3);
     right: 58px;

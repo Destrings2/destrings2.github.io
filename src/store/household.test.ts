@@ -47,8 +47,18 @@ function fakeBackend() {
             state.availability[change.personId]!,
           );
           break;
+        case 'week':
+        case 'override':
+        case 'completion': {
+          // One week's row. Emphatically not the people, which is what made
+          // this fake swallow the other device's colour and report a bug the
+          // real repository cannot produce.
+          const week = state.weeks[change.weekKey];
+          if (week) draft.weeks[change.weekKey] = structuredClone(week);
+          break;
+        }
         default:
-          // 'all', and the week-shaped changes, do carry everything.
+          // 'all' really is everything.
           Object.assign(draft, structuredClone(state));
       }
       server = draft;
@@ -190,5 +200,51 @@ describe('a change from the other device', () => {
 
     expect(useHousehold.getState().state.settings.dailyCap).toBe(120);
     expect(colourOf('b')).toBe('#654321');
+  });
+});
+
+describe('a week that was planned before things changed', () => {
+  it('re-plans when someone gains free time it was not built with', async () => {
+    const backend = fakeBackend();
+    await ready(backend);
+
+    // Give one of them nothing, so the week is planned around the other.
+    useHousehold.getState().applyPreset('b', null);
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+
+    const week = () => useHousehold.getState().currentWeek().week;
+    expect(week().meta.free[1]).toBe(0);
+
+    // Their hours arrive from their own phone: the grid changes underneath a
+    // week that was planned without them. Nothing here re-plans it locally,
+    // which is exactly the situation the other device was in.
+    backend.remoteEdit((draft) => {
+      draft.availability['b'] = draft.availability['a']!.map((day) => [...day]);
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+
+    const free = week().meta.free;
+    expect(free[1]).toBeGreaterThan(0);
+    // And the work is actually split, rather than all of it sitting on one of
+    // them with the rest under "didn't fit".
+    const assigned = week().plan.filter((entry) => entry.personId === 'b');
+    expect(assigned.length).toBeGreaterThan(0);
+  });
+
+  it('leaves a week alone when nothing about it has changed', async () => {
+    const backend = fakeBackend();
+    await ready(backend);
+
+    const before = useHousehold.getState().currentWeek().week;
+    backend.remoteEdit((draft) => {
+      draft.people[0]!.name = 'Renamed';
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+
+    // A rename is not a reason to shuffle everybody's week.
+    expect(useHousehold.getState().currentWeek().week.plan).toEqual(before.plan);
   });
 });

@@ -256,6 +256,13 @@
   gap: var(--s3);
   padding: var(--s4) var(--s5) var(--s10);
 }
+/* A column flex container shrinks its children before it agrees to scroll,
+   and the room strip is short enough that it was squashed to four pixels —
+   the chips still drawn, but sliced off. Nothing in a scrolling column
+   should give up its own height. */
+.panelBody > * {
+  flex: 0 0 auto;
+}
 
 /* The 3D model is the desktop stage, so its own tab shows the room list. */
 .hidePanelScene {

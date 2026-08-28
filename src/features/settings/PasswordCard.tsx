@@ -17,9 +17,7 @@ import styles from './Settings.module.css';
 export function PasswordCard() {
   const setPassword = useSession((s) => s.setPassword);
   const busy = useSession((s) => s.busy);
-  const hasPassword = useSession(
-    (s) => s.session?.user.user_metadata?.['has_password'] === true,
-  );
+  const hasPassword = useSession((s) => s.session?.user.user_metadata?.['has_password'] === true);
   const [value, setValue] = useState('');
   const [done, setDone] = useState(false);
 

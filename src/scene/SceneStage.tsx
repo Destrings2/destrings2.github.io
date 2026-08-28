@@ -136,8 +136,10 @@ export function SceneStage({
                   <i style={{ background: person.colour }} />
                 </div>
               ))}
-              <div>
-                clear
+              {/* Not a person: a room with nothing left in it. Under two real
+                  names, "clear" on its own read as a third housemate. */}
+              <div className={styles.legendNote}>
+                nothing left
                 <i style={{ background: '#C9CFC9' }} />
               </div>
             </>
