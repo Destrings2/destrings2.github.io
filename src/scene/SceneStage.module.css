@@ -85,8 +85,8 @@
 
 .legend {
   position: absolute;
-  right: 58px;
-  bottom: var(--s3);
+  right: var(--s4);
+  top: calc(var(--s3) + 4px);
   z-index: 2;
   text-align: right;
   font-family: var(--mono);
@@ -108,15 +108,17 @@
   .caption p {
     display: none;
   }
-  .legend {
-    display: none;
-  }
 }
 
 /* On desktop the nav rail already names the flat, so the model doesn't. */
 @media (min-width: 1100px) {
   .caption {
     display: none;
+  }
+  .legend {
+    top: auto;
+    bottom: var(--s3);
+    right: 58px;
   }
   .stage::before {
     height: 60px;

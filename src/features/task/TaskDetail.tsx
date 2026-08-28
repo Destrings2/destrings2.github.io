@@ -94,10 +94,7 @@ function TaskForm({ entry, chore, weekKey, done }: FormProps) {
       </p>
 
       <div className={styles.row}>
-        <Button
-          variant={done ? 'primary' : 'default'}
-          onClick={() => toggleDone(weekKey, entry.key)}
-        >
+        <Button variant="primary" onClick={() => toggleDone(weekKey, entry.key)}>
           {done ? 'Done ✓' : 'Mark done'}
         </Button>
         {entry.skipped ? (

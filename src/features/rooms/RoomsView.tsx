@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Field, Select, TextInput } from '@/components/Field';
@@ -7,6 +7,7 @@ import { averageWeekly } from '@/domain/totals';
 import { formatMins } from '@/domain/time';
 import type { Cadence, RoomId } from '@/domain/types';
 import { useWeek } from '@/hooks/useWeek';
+import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useHousehold } from '@/store/household';
 import { useProperty } from '@/store/property';
 import { loadKey, roomNameIn, roomOptions } from '@/store/selectors';
@@ -19,6 +20,24 @@ export function RoomsView() {
   const { openRoom, openRoomDetail } = useUi();
   const plan = useProperty((s) => s.plan);
   const week = useWeek();
+
+  const isDesktop = useIsDesktop();
+  const switcherRef = useRef<HTMLDivElement>(null);
+  const settled = useRef(false);
+
+  // A tap on the model (or a chip off-screen) should leave the active room
+  // visible in the strip, without scrolling the page itself.
+  useEffect(() => {
+    const host = switcherRef.current;
+    const active = host?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!host || !active) return;
+    host.scrollTo({
+      left: active.offsetLeft - (host.clientWidth - active.offsetWidth) / 2,
+      // Instant on first paint; animated only for changes the user can see.
+      behavior: settled.current ? 'smooth' : 'auto',
+    });
+    settled.current = true;
+  }, [openRoom]);
 
   const [name, setName] = useState('');
   const [mins, setMins] = useState('10');
@@ -39,6 +58,19 @@ export function RoomsView() {
 
   return (
     <>
+      <div className={styles.switcher} ref={switcherRef} role="group" aria-label="Rooms">
+        {roomOptions(plan).map((option) => (
+          <button
+            key={option.key}
+            className={styles.roomChip}
+            aria-pressed={openRoom === option.id}
+            onClick={() => openRoomDetail(option.id)}
+          >
+            {option.name}
+          </button>
+        ))}
+      </div>
+
       <Card
         title={roomNameIn(plan, roomId)}
         aside={room ? `${room.dimsLabel} · ${room.areaSqm} m²` : undefined}
@@ -54,8 +86,8 @@ export function RoomsView() {
           <span>{formatMins(Math.round(averageWeekly(state.chores, roomId)))} a week</span>
         </div>
         <p className={styles.hint}>
-          Tap any room in the model to jump to it. {here.length} job{here.length === 1 ? '' : 's'}{' '}
-          here.
+          {isDesktop ? 'Tap any room in the model to jump to it. ' : ''}
+          {here.length} job{here.length === 1 ? '' : 's'} here.
         </p>
       </Card>
 
@@ -136,20 +168,6 @@ export function RoomsView() {
         </div>
       </Card>
 
-      <Card title="Jump to">
-        <div className={styles.jump}>
-          {roomOptions(plan).map((option) => (
-            <Button
-              key={option.key}
-              size="sm"
-              aria-pressed={openRoom === option.id}
-              onClick={() => openRoomDetail(option.id)}
-            >
-              {option.name}
-            </Button>
-          ))}
-        </div>
-      </Card>
     </>
   );
 }
