@@ -22,6 +22,27 @@ afterAll(async () => {
 const q = <T extends Record<string, unknown>>(sql: string, params: unknown[] = []) =>
   db.client.query<T>(sql, params).then((r) => r.rows);
 
+/** Mint a founder invite as the project owner, the way a human would. */
+async function founderCode(email: string | null = null): Promise<string> {
+  const rows = await q<{ mint_founder_invite: string }>(
+    `select mint_founder_invite('test', $1) as mint_founder_invite`,
+    [email],
+  );
+  return rows[0]!.mint_founder_invite;
+}
+
+/** Start a household the way the app does: sign in, spend a founder invite. */
+async function startHousehold(user: string, name: string, displayName: string): Promise<string> {
+  const code = await founderCode();
+  return db.as(user, async () => {
+    const [row] = await q<{ create_household: string }>(
+      `select create_household($1, $2, $3) as create_household`,
+      [name, displayName, code],
+    );
+    return row!.create_household;
+  });
+}
+
 describe('the migrations', () => {
   it('all apply cleanly', async () => {
     const tables = await q<{ table_name: string }>(
@@ -33,6 +54,7 @@ describe('the migrations', () => {
       'availability',
       'chores',
       'completions',
+      'founder_invites',
       'household_invites',
       'households',
       'levels',
@@ -53,7 +75,7 @@ describe('the migrations', () => {
     expect(unprotected.map((r) => r.relname)).toEqual([]);
   });
 
-  it('gives every table at least one policy', async () => {
+  it('gives every table a policy, except the one nothing may reach', async () => {
     const bare = await q<{ tablename: string }>(
       `select t.tablename from pg_tables t
        where t.schemaname = 'public'
@@ -62,7 +84,9 @@ describe('the migrations', () => {
            where p.schemaname = 'public' and p.tablename = t.tablename
          )`,
     );
-    expect(bare.map((r) => r.tablename)).toEqual([]);
+    // founder_invites has RLS on and no policies on purpose: it is reachable
+    // only through the security-definer functions, never through the API.
+    expect(bare.map((r) => r.tablename)).toEqual(['founder_invites']);
   });
 
   it('derives the ledger rather than storing a counter', async () => {
@@ -79,18 +103,21 @@ describe('starting and joining a household', () => {
   let code: string;
 
   it('creates a household and makes you its first member', async () => {
-    household = await db.as(alice, async () => {
-      const [row] = await q<{ create_household: string }>(
-        `select create_household('the example home', 'Alice', '#E8B93E') as create_household`,
-      );
-      return row!.create_household;
-    });
+    household = await startHousehold(alice, 'the example home', 'Alice');
     expect(household).toMatch(/^[0-9a-f-]{36}$/);
 
     const members = await db.as(alice, () =>
       q<{ display_name: string }>(`select display_name from members`),
     );
     expect(members.map((m) => m.display_name)).toEqual(['Alice']);
+  });
+
+  it('spends the founder invite, so it cannot be used twice', async () => {
+    const code = await founderCode();
+    await db.as(bob, () => q(`select create_household('First', 'Bob', $1)`, [code]));
+    await expect(
+      db.as(stranger, () => q(`select create_household('Second', 'Nosey', $1)`, [code])),
+    ).rejects.toThrow(/not valid/);
   });
 
   it('issues an invite code that reads over the phone', async () => {
@@ -170,12 +197,7 @@ describe('row-level security', () => {
   let household: string;
 
   beforeAll(async () => {
-    household = await db.as(alice, async () => {
-      const [row] = await q<{ create_household: string }>(
-        `select create_household('Second Home', 'Alice', '#E8B93E') as create_household`,
-      );
-      return row!.create_household;
-    });
+    household = await startHousehold(alice, 'Second Home', 'Alice');
     await db.as(alice, () =>
       q(
         `insert into chores (household_id, name, mins, cadence)
@@ -261,12 +283,7 @@ describe('the geometry trigger', () => {
   const level = () => structuredClone(EXAMPLE_HOME_DOCUMENT.levels[0]!);
 
   beforeAll(async () => {
-    household = await db.as(alice, async () => {
-      const [row] = await q<{ create_household: string }>(
-        `select create_household('Geometry', 'Alice', '#E8B93E') as create_household`,
-      );
-      return row!.create_household;
-    });
+    household = await startHousehold(alice, 'Geometry', 'Alice');
     property = await db.as(alice, async () => {
       const [row] = await q<{ id: string }>(
         `insert into properties (household_id, name) values ($1, 'Test') returning id`,
@@ -358,12 +375,7 @@ describe('seeding a new household', () => {
   let property: string;
 
   it('stores the whole flat from its document', async () => {
-    household = await db.as(bob, async () => {
-      const [row] = await q<{ create_household: string }>(
-        `select create_household('Seeded', 'Bob', '#5FA394') as create_household`,
-      );
-      return row!.create_household;
-    });
+    household = await startHousehold(bob, 'Seeded', 'Bob');
 
     property = await db.as(bob, async () => {
       const [row] = await q<{ seed_property: string }>(
@@ -502,12 +514,7 @@ describe('the ledger', () => {
   let chore: string;
 
   beforeAll(async () => {
-    household = await db.as(alice, async () => {
-      const [row] = await q<{ create_household: string }>(
-        `select create_household('Ledger', 'Alice', '#E8B93E') as create_household`,
-      );
-      return row!.create_household;
-    });
+    household = await startHousehold(alice, 'Ledger', 'Alice');
     member = await db.as(alice, async () => {
       const [row] = await q<{ id: string }>(`select id from members where household_id = $1`, [
         household,
@@ -600,6 +607,102 @@ describe('realtime', () => {
       `select tablename from pg_publication_tables
        where pubname = 'supabase_realtime' and schemaname = 'public'
          and tablename in ('levels', 'rooms', 'properties')`,
+    );
+    expect(rows).toEqual([]);
+  });
+});
+
+describe('invite-only', () => {
+  it('refuses to start a household without a code', async () => {
+    await expect(
+      db.as(stranger, () => q(`select create_household('Uninvited', 'Nosey', 'NOSUCHCODE')`)),
+    ).rejects.toThrow(/not valid/);
+  });
+
+  it('refuses an expired founder invite', async () => {
+    const [row] = await q<{ mint_founder_invite: string }>(
+      `select mint_founder_invite('old', null, interval '-1 hour') as mint_founder_invite`,
+    );
+    await expect(
+      db.as(stranger, () =>
+        q(`select create_household('Late', 'Nosey', $1)`, [row!.mint_founder_invite]),
+      ),
+    ).rejects.toThrow(/not valid/);
+  });
+
+  it('honours a code locked to one address', async () => {
+    const code = await founderCode('someone-else@example.com');
+    await expect(
+      db.as(stranger, () => q(`select create_household('Wrong hands', 'Nosey', $1)`, [code])),
+    ).rejects.toThrow(/not valid/);
+  });
+
+  it('lets the address it was locked to use it', async () => {
+    const invited = await db.createUser('invited@example.com');
+    const code = await founderCode('invited@example.com');
+    // auth.jwt() carries the email on the hosted platform; mirror that here.
+    await db.client.query('begin');
+    await db.client.query(`set local role authenticated`);
+    await db.client.query(`select set_config('request.jwt.claim.sub', $1, true)`, [invited]);
+    await db.client.query(`select set_config('request.jwt.claims', $1, true)`, [
+      JSON.stringify({ sub: invited, email: 'invited@example.com' }),
+    ]);
+    const { rows } = await db.client.query<{ create_household: string }>(
+      `select create_household('Invited home', 'Invited', $1) as create_household`,
+      [code],
+    );
+    await db.client.query('commit');
+    expect(rows[0]!.create_household).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('does not let the app mint its own way in', async () => {
+    await expect(db.as(stranger, () => q(`select mint_founder_invite('cheeky')`))).rejects.toThrow(
+      /permission denied/,
+    );
+  });
+
+  it('does not let anyone read the founder invite table', async () => {
+    await expect(db.as(stranger, () => q(`select * from founder_invites`))).rejects.toThrow(
+      /permission denied/,
+    );
+  });
+
+  it('hands a member back their household invite link', async () => {
+    const household = await startHousehold(alice, 'Linkable', 'Alice');
+    const code = await db.as(alice, async () => {
+      const [row] = await q<{ create_invite: string }>(
+        `select create_invite($1) as create_invite`,
+        [household],
+      );
+      return row!.create_invite;
+    });
+    const rows = await db.as(alice, () =>
+      q<{ code: string }>(`select code from household_invite_link($1)`, [household]),
+    );
+    expect(rows[0]!.code).toBe(code);
+  });
+
+  it('hands an outsider nothing, even knowing the household id', async () => {
+    const household = await startHousehold(alice, 'Private', 'Alice');
+    await db.as(alice, () => q(`select create_invite($1)`, [household]));
+    const rows = await db.as(stranger, () =>
+      q(`select code from household_invite_link($1)`, [household]),
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it('stops offering a link once it has been claimed', async () => {
+    const household = await startHousehold(alice, 'Claimed', 'Alice');
+    const code = await db.as(alice, async () => {
+      const [row] = await q<{ create_invite: string }>(
+        `select create_invite($1) as create_invite`,
+        [household],
+      );
+      return row!.create_invite;
+    });
+    await db.as(stranger, () => q(`select join_household($1, 'Guest')`, [code]));
+    const rows = await db.as(alice, () =>
+      q(`select code from household_invite_link($1)`, [household]),
     );
     expect(rows).toEqual([]);
   });

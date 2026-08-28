@@ -9,7 +9,7 @@ const DATA_DIR = join(process.cwd(), 'node_modules', '.cache', 'rota-pg');
 export interface Harness {
   client: Client;
   /** Run `work` as a signed-in user, then drop back to the owning role. */
-  as<T>(userId: string, work: () => Promise<T>): Promise<T>;
+  as<T>(userId: string, work: () => Promise<T>, email?: string): Promise<T>;
   /** Run as the anonymous role — signed out. */
   anon<T>(work: () => Promise<T>): Promise<T>;
   createUser(email: string): Promise<string>;
@@ -59,10 +59,19 @@ export async function startHarness(): Promise<Harness> {
 
   await client.query(readSql('testing', 'grants.sql'));
 
-  async function as<T>(userId: string, work: () => Promise<T>): Promise<T> {
+  async function as<T>(userId: string, work: () => Promise<T>, email?: string): Promise<T> {
     await client.query('begin');
     await client.query(`set local role authenticated`);
     await client.query(`select set_config('request.jwt.claim.sub', $1, true)`, [userId]);
+    // The full claim set, so auth.jwt() ->> 'email' works the way it does on
+    // the hosted platform.
+    await client.query(`select set_config('request.jwt.claims', $1, true)`, [
+      JSON.stringify({
+        sub: userId,
+        email: email ?? emails.get(userId) ?? `${userId}@test.invalid`,
+        role: 'authenticated',
+      }),
+    ]);
     try {
       const result = await work();
       await client.query('commit');
@@ -86,11 +95,14 @@ export async function startHarness(): Promise<Harness> {
     }
   }
 
+  const emails = new Map<string, string>();
+
   async function createUser(email: string): Promise<string> {
     const { rows } = await client.query<{ id: string }>(
       `insert into auth.users (email) values ($1) returning id`,
       [email],
     );
+    emails.set(rows[0]!.id, email);
     return rows[0]!.id;
   }
 

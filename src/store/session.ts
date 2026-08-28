@@ -38,8 +38,10 @@ interface SessionStore {
   start(): Promise<void>;
   sendMagicLink(email: string): Promise<void>;
   signOut(): Promise<void>;
-  createHousehold(name: string, displayName: string): Promise<void>;
+  createHousehold(name: string, displayName: string, founderCode: string): Promise<void>;
   joinHousehold(code: string, displayName: string): Promise<void>;
+  /** Mint or fetch this household's invite link, to hand to the other person. */
+  inviteLink(): Promise<string | null>;
   dismissError(): void;
 }
 
@@ -129,13 +131,14 @@ export const useSession = create<SessionStore>((set, get) => ({
     set({ session: null, household: null, stage: 'signedOut', linkSentTo: null });
   },
 
-  async createHousehold(name, displayName) {
+  async createHousehold(name, displayName, founderCode) {
     set({ busy: true, error: null });
     try {
       const client = supabase();
       const { data: householdId, error } = await client.rpc('create_household', {
         household_name: name.trim(),
         display_name: displayName.trim(),
+        invite_code: founderCode.trim().toUpperCase(),
         colour: PALETTE[0],
       });
       if (error) throw error;
@@ -188,6 +191,29 @@ export const useSession = create<SessionStore>((set, get) => ({
     } finally {
       set({ busy: false });
     }
+  },
+
+  async inviteLink() {
+    const household = get().household;
+    if (!household) return null;
+    const client = supabase();
+
+    // Reuse an unclaimed one rather than minting a fresh code every time the
+    // card is opened, so a link already sent by text still works.
+    const { data: existing } = await client.rpc('household_invite_link', {
+      target_household: household.id,
+    });
+    const found = (existing as { code: string }[] | null)?.[0]?.code;
+    if (found) return `${window.location.origin}/join/${found}`;
+
+    const { data, error } = await client.rpc('create_invite', {
+      target_household: household.id,
+    });
+    if (error) {
+      set({ error: message(error) });
+      return null;
+    }
+    return `${window.location.origin}/join/${data as string}`;
   },
 
   dismissError: () => set({ error: null }),

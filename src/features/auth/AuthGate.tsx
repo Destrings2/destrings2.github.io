@@ -122,8 +122,9 @@ function ChooseHousehold() {
   const [displayName, setDisplayName] = useState('');
   const [householdName, setHouseholdName] = useState('');
   const [code, setCode] = useState(pendingInvite ?? '');
+  const [founderCode, setFounderCode] = useState('');
 
-  const canCreate = displayName.trim() && householdName.trim();
+  const canCreate = displayName.trim() && householdName.trim() && founderCode.trim().length >= 6;
   const canJoin = displayName.trim() && code.trim().length >= 6;
 
   return (
@@ -156,17 +157,30 @@ function ChooseHousehold() {
                 />
               )}
             </Field>
+            <Field label="Founder code">
+              {(id) => (
+                <TextInput
+                  id={id}
+                  value={founderCode}
+                  placeholder="ABCD234567"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  onChange={(e) => setFounderCode(e.target.value.toUpperCase())}
+                />
+              )}
+            </Field>
             <Button
               variant="primary"
               full
               disabled={busy || !canCreate}
-              onClick={() => createHousehold(householdName, displayName)}
+              onClick={() => createHousehold(householdName, displayName, founderCode)}
             >
               {busy ? 'Setting up…' : 'Start'}
             </Button>
             <p className={styles.note}>
-              You&rsquo;ll get the the example home floorplan and a starter list of 72 jobs to edit down
-              to your own place. Invite the other person once you&rsquo;re in.
+              Starting a household needs a code from whoever runs this. If you were sent a link to
+              join someone else&rsquo;s, use that instead. You&rsquo;ll get the the example home
+              floorplan and a starter list of 72 jobs to edit down to your own place.
             </p>
           </div>
         </Card>

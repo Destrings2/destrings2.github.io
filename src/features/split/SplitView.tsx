@@ -8,6 +8,7 @@ import { useWeek } from '@/hooks/useWeek';
 import { Meter } from '@/components/Meter';
 import { useHousehold } from '@/store/household';
 import { useSession } from '@/store/session';
+import { InviteCard } from './InviteCard';
 import styles from './SplitView.module.css';
 
 export function SplitView() {
@@ -116,6 +117,8 @@ export function SplitView() {
           </Button>
         </div>
       </Card>
+
+      {!localOnly && <InviteCard />}
 
       {!localOnly && (
         <Card title="Household">

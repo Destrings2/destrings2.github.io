@@ -1,11 +1,9 @@
 -- ============================================================
--- The table grants Supabase applies for you.
+-- Intentionally empty.
 --
--- Row-level security decides which rows a role may see; these decide whether
--- it may reach the table at all. Run after the migrations, since they cover
--- tables the migrations created.
+-- Table privileges are granted by `alter default privileges` in bootstrap.sql,
+-- as the objects are created — which is how Supabase does it. Granting in a
+-- sweep after the migrations instead would undo any revoke a migration
+-- performs on its own table, and founder_invites depends on exactly that.
 -- ============================================================
-
-grant select, insert, update, delete on all tables in schema public to authenticated;
-grant usage, select on all sequences in schema public to authenticated;
-grant select on all tables in schema public to anon;
+select 1;
