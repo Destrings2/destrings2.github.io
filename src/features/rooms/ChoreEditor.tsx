@@ -17,12 +17,14 @@ interface Props {
 /**
  * Everything about a job that was decided when it was added, and until now
  * could only be changed by deleting it and typing it in again: what it is
- * called, how long it takes, how often, which room it belongs to, and the two
- * flags that decide when in the week it can land.
+ * called, how long it takes, how often, which room it belongs to, whether
+ * either of you would rather be the one doing it, and the two flags that
+ * decide when in the week it can land.
  */
 export function ChoreEditor({ chore, onDone }: Props) {
   const editChore = useHousehold((s) => s.editChore);
   const dailyCap = useHousehold((s) => s.state.settings.dailyCap);
+  const people = useHousehold((s) => s.state.people);
   const plan = useProperty((s) => s.plan);
 
   const [name, setName] = useState(chore.name);
@@ -31,6 +33,7 @@ export function ChoreEditor({ chore, onDone }: Props) {
   const [roomId, setRoomId] = useState<RoomId>(chore.roomId);
   const [noisy, setNoisy] = useState(chore.noisy);
   const [grim, setGrim] = useState(chore.grim);
+  const [preferredBy, setPreferredBy] = useState(chore.preferredBy);
 
   const minutes = Math.max(1, Number(mins) || chore.mins);
   const trimmed = name.trim();
@@ -41,11 +44,20 @@ export function ChoreEditor({ chore, onDone }: Props) {
     cadence !== chore.cadence ||
     roomId !== chore.roomId ||
     noisy !== chore.noisy ||
-    grim !== chore.grim;
+    grim !== chore.grim ||
+    preferredBy !== chore.preferredBy;
 
   function save() {
     if (!trimmed) return;
-    editChore(chore.id, { name: trimmed, mins: minutes, cadence, roomId, noisy, grim });
+    editChore(chore.id, {
+      name: trimmed,
+      mins: minutes,
+      cadence,
+      roomId,
+      noisy,
+      grim,
+      preferredBy,
+    });
     onDone();
   }
 
@@ -80,13 +92,6 @@ export function ChoreEditor({ chore, onDone }: Props) {
           )}
         </Field>
 
-        {tooLong && (
-          <p className={styles.warn}>
-            Longer than the {formatMins(dailyCap)} a single day is allowed to hold, so the planner
-            won&rsquo;t place it. Split it up, or raise the daily cap in Settings.
-          </p>
-        )}
-
         <Field label="How often">
           {(id) => (
             <Select id={id} value={cadence} onChange={(e) => setCadence(e.target.value as Cadence)}>
@@ -117,8 +122,60 @@ export function ChoreEditor({ chore, onDone }: Props) {
         </Field>
       </div>
 
+      {tooLong && (
+        <p className={styles.warn}>
+          Longer than the {formatMins(dailyCap)} a single day is allowed to hold, so the planner
+          won&rsquo;t place it. Split it up, or raise the daily cap in Settings.
+        </p>
+      )}
+
+      <span className={styles.label}>Who&rsquo;d rather do it</span>
+      <div className={styles.flags} role="radiogroup" aria-label="Who would rather do it">
+        <Button
+          size="sm"
+          role="radio"
+          aria-checked={preferredBy === null}
+          onClick={() => setPreferredBy(null)}
+        >
+          Either of you
+        </Button>
+        {people.map((person) => (
+          <Button
+            key={person.id}
+            size="sm"
+            role="radio"
+            aria-checked={preferredBy === person.id}
+            style={
+              preferredBy === person.id
+                ? {
+                    background: person.colour,
+                    borderColor: person.colour,
+                    color: 'var(--on-signal)',
+                  }
+                : undefined
+            }
+            onClick={() => {
+              setPreferredBy(person.id);
+              // Rotating and preferring are opposite instructions; taking the
+              // preference means dropping the rotation rather than having the
+              // planner weigh one against the other behind your back.
+              setGrim(false);
+            }}
+          >
+            {person.name}
+          </Button>
+        ))}
+      </div>
+
       <div className={styles.flags}>
-        <Button size="sm" aria-pressed={grim} onClick={() => setGrim(!grim)}>
+        <Button
+          size="sm"
+          aria-pressed={grim}
+          onClick={() => {
+            setGrim(!grim);
+            if (!grim) setPreferredBy(null);
+          }}
+        >
           Rotates
         </Button>
         <Button size="sm" aria-pressed={noisy} onClick={() => setNoisy(!noisy)}>
@@ -126,8 +183,10 @@ export function ChoreEditor({ chore, onDone }: Props) {
         </Button>
       </div>
       <p className={styles.hint}>
-        A job that <b>rotates</b> alternates between you rather than always landing on the same
-        person. One marked <b>not late</b> is kept out of the early morning and late evening.
+        A preference is a lean, not a rule: the job goes to whoever wants it while the week is still
+        even, and gives way once that would leave one of you doing more than your share. A job that{' '}
+        <b>rotates</b> alternates instead, so the same person doesn&rsquo;t always get it. One
+        marked <b>not late</b> is kept out of the early morning and late evening.
       </p>
 
       <div className={styles.editorRow}>

@@ -41,6 +41,12 @@ export interface Chore {
   noisy: boolean;
   /** Rotated between people rather than always landing on one: the WC, the bins. */
   grim: boolean;
+  /**
+   * Someone would rather do this one. A lean, not an assignment: it decides
+   * who gets the job while the week is still even, and gives way once giving
+   * it to them again would make the split unfair. Nobody in particular: null.
+   */
+  preferredBy: PersonId | null;
   enabled: boolean;
 }
 
@@ -120,6 +126,14 @@ export interface SchedulerConfig {
   ledgerCorrection: number;
   /** Penalty applied to giving someone the grim job they did last time. */
   grimPenalty: number;
+  /**
+   * Bonus for giving a job to whoever prefers it. In the same units as the
+   * grim penalty — a fraction of a person's target — so a preference wins
+   * while the two are close and loses once honouring it would put someone
+   * this far ahead of their share. Preference bends the split; it does not
+   * break it.
+   */
+  preferBonus: number;
 }
 
 export const DEFAULT_CONFIG: SchedulerConfig = {
@@ -128,4 +142,5 @@ export const DEFAULT_CONFIG: SchedulerConfig = {
   noisyWindow: { from: 8 * 60, to: 21 * 60 },
   ledgerCorrection: 0.4,
   grimPenalty: 0.35,
+  preferBonus: 0.35,
 };

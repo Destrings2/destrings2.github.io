@@ -1,4 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  DEFAULT_SPLIT_WEEKEND,
+  DEFAULT_WEEKDAY_EVENINGS,
+  emptyGrid,
+  gridFrom,
+} from '@/data/defaultAvailability';
 import { blankState, useHousehold } from './household';
 import type { Change, Repository } from './repository';
 import type { HouseholdState } from './types';
@@ -231,6 +237,38 @@ describe('a week that was planned before things changed', () => {
     // them with the rest under "didn't fit".
     const assigned = week().plan.filter((entry) => entry.personId === 'b');
     expect(assigned.length).toBeGreaterThan(0);
+  });
+
+  it('repairs a week frozen before anyone had painted any hours', async () => {
+    // What a household actually starts as: the week is frozen the moment it
+    // is opened, which on a fresh sign-in is before either grid exists. Both
+    // people then read 0m of 0m, 0% of free, and every job sits under
+    // "didn't fit" — because the plan was made for two people with no time.
+    const backend = fakeBackend();
+    backend.remoteEdit((draft) => {
+      draft.availability['a'] = emptyGrid();
+      draft.availability['b'] = emptyGrid();
+    });
+    await ready(backend);
+
+    expect(useHousehold.getState().currentWeek().week.meta.free).toEqual([0, 0]);
+
+    // Then the hours arrive.
+    backend.remoteEdit((draft) => {
+      draft.availability['a'] = gridFrom(DEFAULT_WEEKDAY_EVENINGS);
+      draft.availability['b'] = gridFrom(DEFAULT_SPLIT_WEEKEND);
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+
+    const week = useHousehold.getState().currentWeek().week;
+    expect(week.meta.free[0]).toBeGreaterThan(0);
+    expect(week.meta.free[1]).toBeGreaterThan(0);
+    // Both meters read something, and the work is actually placed rather than
+    // piled into "didn't fit".
+    expect(week.meta.assigned[0]).toBeGreaterThan(0);
+    expect(week.meta.assigned[1]).toBeGreaterThan(0);
+    expect(week.plan.filter((e) => !e.skipped && e.personId === null)).toHaveLength(0);
   });
 
   it('leaves a week alone when nothing about it has changed', async () => {

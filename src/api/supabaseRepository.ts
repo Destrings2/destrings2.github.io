@@ -18,6 +18,7 @@ interface Row {
     cadence: Cadence;
     noisy: boolean;
     grim: boolean;
+    preferred_by: string | null;
     enabled: boolean;
     seed_key: string | null;
   };
@@ -85,7 +86,7 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
           .order('created_at'),
         client
           .from('chores')
-          .select('id, room_id, name, mins, cadence, noisy, grim, enabled, seed_key')
+          .select('id, room_id, name, mins, cadence, noisy, grim, preferred_by, enabled, seed_key')
           .eq('household_id', householdId)
           .is('deleted_at', null)
           .order('created_at'),
@@ -178,6 +179,7 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
         cadence: c.cadence,
         noisy: c.noisy,
         grim: c.grim,
+        preferredBy: c.preferred_by ?? null,
         enabled: c.enabled,
       })),
       availability: grids,
@@ -234,6 +236,7 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
           cadence: chore.cadence,
           noisy: chore.noisy,
           grim: chore.grim,
+          preferred_by: chore.preferredBy,
           enabled: chore.enabled,
         };
 

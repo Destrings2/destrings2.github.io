@@ -104,6 +104,7 @@ describe('averageWeekly', () => {
       cadence: 'daily',
       noisy: false,
       grim: false,
+      preferredBy: null,
       enabled: true,
     };
     expect(averageWeekly([daily])).toBe(70);

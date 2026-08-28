@@ -1,5 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  DEFAULT_SPLIT_WEEKEND,
+  DEFAULT_WEEKDAY_EVENINGS,
+  emptyGrid,
+  gridFrom,
+} from '../src/data/defaultAvailability';
+import { seedToChores } from '../src/data/chores';
 import { STARTER_CHORES } from '../src/data/starterChores';
+import { buildPlan, freeMinutes } from '../src/domain/scheduler';
+import { H0, HN } from '../src/domain/time';
+import { DEFAULT_CONFIG } from '../src/domain/types';
 import { STARTER_FLAT } from '../src/data/starterFlat';
 import { startHarness, type Harness } from './testing/harness';
 
@@ -576,6 +586,192 @@ describe('reading a home back', () => {
   it('gives an outsider nothing, so the app shows the starter instead', async () => {
     const seen = await readAsClient(stranger, household);
     expect(seen.property).toBeNull();
+  });
+});
+
+describe('a job someone would rather do', () => {
+  let household: string;
+  let mine: string;
+
+  beforeAll(async () => {
+    household = await startHousehold(alice, 'Preferences', 'Alice');
+    mine = await db.as(alice, async () => {
+      const [row] = await q<{ id: string }>(`select id from members where household_id = $1`, [
+        household,
+      ]);
+      return row!.id;
+    });
+  });
+
+  it('records who prefers it', async () => {
+    await db.as(alice, () =>
+      q(
+        `insert into chores (household_id, name, mins, cadence, preferred_by)
+         values ($1, 'The bins', 5, 'weekly', $2)`,
+        [household, mine],
+      ),
+    );
+    const [row] = await db.as(alice, () =>
+      q<{ preferred_by: string }>(
+        `select preferred_by from chores where household_id = $1 and name = 'The bins'`,
+        [household],
+      ),
+    );
+    expect(row!.preferred_by).toBe(mine);
+  });
+
+  it('refuses somebody who is not in the household', async () => {
+    const elsewhere = await startHousehold(bob, 'Elsewhere', 'Bob');
+    const theirs = await db.as(bob, async () => {
+      const [row] = await q<{ id: string }>(`select id from members where household_id = $1`, [
+        elsewhere,
+      ]);
+      return row!.id;
+    });
+
+    await expect(
+      db.as(alice, () =>
+        q(
+          `insert into chores (household_id, name, mins, cadence, preferred_by)
+           values ($1, 'Not yours', 5, 'weekly', $2)`,
+          [household, theirs],
+        ),
+      ),
+    ).rejects.toThrow(/not in this household/);
+  });
+
+  it('lets the job outlive the person who preferred it', async () => {
+    // Leaving a household should not take the jobs with you; the bins still
+    // need doing, they are simply nobody's preference now.
+    await q(`delete from members where id = $1`, [mine]);
+    const [row] = await q<{ preferred_by: string | null }>(
+      `select preferred_by from chores where household_id = $1 and name = 'The bins'`,
+      [household],
+    );
+    expect(row!.preferred_by).toBeNull();
+  });
+});
+
+describe('two people, their hours, and the week that comes out of it', () => {
+  /**
+   * The seam the rest of this suite left open, and the one the app was
+   * actually broken at: the store's own tests use a fake backend, so they
+   * round-trip whatever keys they are handed and can only ever confirm what
+   * they already assume. This drives the real SQL — the same RPC the client
+   * calls, the same select it reads back — and then hands the result to the
+   * real planner. A mismatch in how an hour is encoded, a policy that hides
+   * the other person's rows, or a grid keyed by the wrong id all land here.
+   */
+  const gridToSlots = (grid: boolean[][]) => {
+    const slots: [number, number][] = [];
+    grid.forEach((day, dow) =>
+      day.forEach((on, index) => {
+        if (on) slots.push([dow, H0 + index]);
+      }),
+    );
+    return slots;
+  };
+
+  let household: string;
+  let alicesMember: string;
+  let bobsMember: string;
+
+  beforeAll(async () => {
+    household = await startHousehold(alice, 'Two of us', 'Alice');
+    const code = await db.as(alice, async () => {
+      const [row] = await q<{ create_invite: string }>(
+        `select create_invite($1) as create_invite`,
+        [household],
+      );
+      return row!.create_invite;
+    });
+    await db.as(bob, () => q(`select join_household($1, 'Bob')`, [code]));
+
+    const members = await db.as(alice, () =>
+      q<{ id: string; display_name: string }>(
+        `select id, display_name from members where household_id = $1 order by created_at`,
+        [household],
+      ),
+    );
+    alicesMember = members.find((m) => m.display_name === 'Alice')!.id;
+    bobsMember = members.find((m) => m.display_name === 'Bob')!.id;
+
+    // Each paints their own hours, from their own session, as they would.
+    await db.as(alice, () =>
+      q(`select set_availability($1, $2::jsonb)`, [
+        alicesMember,
+        JSON.stringify(gridToSlots(gridFrom(DEFAULT_WEEKDAY_EVENINGS))),
+      ]),
+    );
+    await db.as(bob, () =>
+      q(`select set_availability($1, $2::jsonb)`, [
+        bobsMember,
+        JSON.stringify(gridToSlots(gridFrom(DEFAULT_SPLIT_WEEKEND))),
+      ]),
+    );
+  });
+
+  /** Exactly what the client reads, rebuilt exactly as the client rebuilds it. */
+  async function gridsAsSeenBy(user: string) {
+    return db.as(user, async () => {
+      const people = await q<{ id: string }>(
+        `select id from members where household_id = $1 order by created_at`,
+        [household],
+      );
+      const rows = await q<{ member_id: string; dow: number; hour: number }>(
+        `select member_id, dow, hour from availability`,
+      );
+      const grids: Record<string, boolean[][]> = {};
+      for (const person of people) grids[person.id] = emptyGrid();
+      for (const slot of rows) {
+        const grid = grids[slot.member_id];
+        const hourIndex = slot.hour - H0;
+        if (grid && hourIndex >= 0 && hourIndex < HN) grid[slot.dow]![hourIndex] = true;
+      }
+      return grids;
+    });
+  }
+
+  it('lets each of them see the other one’s hours, not just their own', async () => {
+    for (const [who, user] of [
+      ['Alice', alice],
+      ['Bob', bob],
+    ] as const) {
+      const grids = await gridsAsSeenBy(user);
+      expect(freeMinutes(grids[alicesMember]!), `${who} reading Alice`).toBeGreaterThan(0);
+      expect(freeMinutes(grids[bobsMember]!), `${who} reading Bob`).toBeGreaterThan(0);
+    }
+  });
+
+  it('survives the trip through the hour encoding', async () => {
+    const grids = await gridsAsSeenBy(alice);
+    expect(grids[alicesMember]).toEqual(gridFrom(DEFAULT_WEEKDAY_EVENINGS));
+    expect(grids[bobsMember]).toEqual(gridFrom(DEFAULT_SPLIT_WEEKEND));
+  });
+
+  it('plans a week both of them are actually in', async () => {
+    const grids = await gridsAsSeenBy(alice);
+    const people = [
+      { id: alicesMember, name: 'Alice', colour: '#E8B93E' },
+      { id: bobsMember, name: 'Bob', colour: '#5FA394' },
+    ];
+    const week = buildPlan({
+      people,
+      chores: seedToChores(STARTER_CHORES),
+      availability: grids,
+      ledger: { [alicesMember]: 0, [bobsMember]: 0 },
+      lastDoneBy: {},
+      overrides: {},
+      weekIndex: 140,
+      config: DEFAULT_CONFIG,
+    });
+
+    // The symptom that started this: one of them at 0m of 0m, 0% of free,
+    // with the rest of the week under "didn't fit".
+    expect(week.meta.free[0]).toBeGreaterThan(0);
+    expect(week.meta.free[1]).toBeGreaterThan(0);
+    expect(week.meta.assigned[0]).toBeGreaterThan(0);
+    expect(week.meta.assigned[1]).toBeGreaterThan(0);
   });
 });
 

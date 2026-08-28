@@ -217,6 +217,9 @@ export function RoomsView() {
                 {formatMins(chore.mins)} · {CADENCE[chore.cadence].label}
                 {chore.grim ? ' · rotates' : ''}
                 {chore.noisy ? ' · not late' : ''}
+                {chore.preferredBy
+                  ? ` · ${state.people.find((p) => p.id === chore.preferredBy)?.name ?? 'someone'} prefers`
+                  : ''}
               </small>
             </button>
             <button

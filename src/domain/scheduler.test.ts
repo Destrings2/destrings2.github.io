@@ -261,6 +261,64 @@ describe('buildPlan — grim rotation', () => {
   });
 });
 
+describe('buildPlan — a job someone would rather do', () => {
+  const symmetric = { a: gridFrom([[5, 9, 19]]), b: gridFrom([[5, 9, 19]]) };
+
+  /** One weekly job, wanted by `who`, with both people equally free. */
+  const wanted = (who: string | null): Chore => ({
+    ...CHORES.find((c) => c.cadence === 'weekly' && !c.grim)!,
+    preferredBy: who,
+  });
+
+  it('gives it to whoever wants it', () => {
+    const job = wanted('b');
+    const week = buildPlan(input({ chores: [job], availability: symmetric }));
+    expect(week.plan.find((e) => e.choreId === job.id)!.personId).toBe('b');
+  });
+
+  it('is only a lean, so it does not decide who is behind', () => {
+    // The same job, wanted by nobody, to show the preference is what moved it
+    // rather than the order things happen to be considered in.
+    const job = wanted(null);
+    const week = buildPlan(input({ chores: [job], availability: symmetric }));
+    expect(week.plan.find((e) => e.choreId === job.id)!.personId).toBe('a');
+  });
+
+  it('gives way rather than letting one person take the lot', () => {
+    // Every job preferred by the same person. Honouring all of them would
+    // hand them the entire week, which is the thing the split exists to
+    // prevent — so the preference has to lose once they are far enough ahead.
+    const all = CHORES.filter((c) => c.enabled).map((c) => ({ ...c, preferredBy: 'a' }));
+    const week = buildPlan(input({ chores: all, availability: symmetric }));
+
+    const mine = week.meta.assigned[0] ?? 0;
+    const theirs = week.meta.assigned[1] ?? 0;
+    expect(theirs).toBeGreaterThan(0);
+    // Still recognisably a split rather than one person's week.
+    expect(mine / (mine + theirs)).toBeLessThan(0.75);
+  });
+
+  it('does not override a hand placement', () => {
+    const job = wanted('b');
+    const occurrence = dueInstances([job], 140)[0]!;
+    const week = buildPlan(
+      input({
+        chores: [job],
+        availability: symmetric,
+        overrides: { [occurrence.key]: { personId: 'a', day: 2, at: 19 * 60, skip: false } },
+      }),
+    );
+    expect(week.plan.find((e) => e.choreId === job.id)!.personId).toBe('a');
+  });
+
+  it('counts for nothing when the person who wanted it is gone', () => {
+    const job = wanted('ghost');
+    const week = buildPlan(input({ chores: [job], availability: symmetric }));
+    const entry = week.plan.find((e) => e.choreId === job.id)!;
+    expect(['a', 'b']).toContain(entry.personId);
+  });
+});
+
 describe('buildPlan — manual placement wins', () => {
   const chore = CHORES.find((c) => c.cadence === 'weekly' && !c.noisy)!;
   const key = `${chore.id}#0`;

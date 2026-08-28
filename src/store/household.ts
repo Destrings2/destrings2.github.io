@@ -58,6 +58,9 @@ function reconcile(state: HouseholdState): HouseholdState {
     if (new Date(`${key}T12:00:00`).getTime() < keepFrom) delete next.weeks[key];
   }
 
+  // Written before jobs could be preferred by anyone.
+  for (const chore of next.chores) chore.preferredBy ??= null;
+
   // A frozen week names the jobs it was built from, so deleting one leaves
   // entries behind pointing at a job that no longer exists. They rendered as
   // a row with a duration and no name, and counted towards the week's total.
@@ -123,7 +126,9 @@ interface HouseholdStore {
   /** Change a job already on the list. Anything not named is left alone. */
   editChore(
     id: string,
-    patch: Partial<Pick<Chore, 'name' | 'mins' | 'cadence' | 'roomId' | 'noisy' | 'grim'>>,
+    patch: Partial<
+      Pick<Chore, 'name' | 'mins' | 'cadence' | 'roomId' | 'noisy' | 'grim' | 'preferredBy'>
+    >,
   ): void;
   toggleChore(id: string): void;
   removeChore(id: string): void;
@@ -545,6 +550,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
           cadence: input.cadence,
           noisy: false,
           grim: false,
+          preferredBy: null,
           enabled: true,
         };
         draft.chores.push(chore);

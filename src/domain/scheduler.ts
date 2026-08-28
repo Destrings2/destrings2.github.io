@@ -250,6 +250,7 @@ export function buildPlan(input: BuildInput): WeekPlan {
         // Furthest behind their target goes first.
         let score = ((target[i] ?? 0) - (assigned[i] ?? 0)) / Math.max(60, target[i] || 60);
         if (chore.grim && lastDoneBy[chore.id] === people[i]!.id) score -= config.grimPenalty;
+        if (chore.preferredBy && chore.preferredBy === people[i]!.id) score += config.preferBonus;
         return { i, slot, score };
       })
       .filter((c): c is { i: number; slot: NonNullable<typeof c.slot>; score: number } => !!c.slot);

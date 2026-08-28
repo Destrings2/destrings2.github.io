@@ -36,6 +36,7 @@ export function seedToChores(
     cadence: s.cadence,
     noisy: s.noisy ?? false,
     grim: s.grim ?? false,
+    preferredBy: null,
     enabled: true,
   }));
 }
