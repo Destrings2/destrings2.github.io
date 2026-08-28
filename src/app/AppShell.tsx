@@ -1,4 +1,6 @@
 import { Meter } from '@/components/Meter';
+import { GearIcon } from './icons';
+import { SettingsSheet } from '@/features/settings/SettingsSheet';
 import { formatMins, mondayOf } from '@/domain/time';
 import { PlanView } from '@/features/plan/PlanView';
 import { RoomsView } from '@/features/rooms/RoomsView';
@@ -41,12 +43,22 @@ export function AppShell() {
   const isDesktop = useIsDesktop();
   const state = useHousehold((s) => s.state);
   const setTint = useHousehold((s) => s.setTint);
-  const { tab, setTab, openRoomDetail } = useUi();
+  const writeFailed = useHousehold((s) => s.writeFailed);
+  const retrySync = useHousehold((s) => s.retrySync);
+  const { tab, setTab, openRoomDetail, setSettingsOpen } = useUi();
   const plan = useProperty((s) => s.plan);
   const week = useWeek();
 
   const remaining = week.totals.total - week.totals.doneMins;
   const progress = week.totals.total ? week.totals.doneMins / week.totals.total : 0;
+
+  // A failed write matters wherever you are, not just on the tab that had
+  // the card. Fixed, so the scene's full-bleed view shows it too.
+  const syncChip = writeFailed ? (
+    <button className={styles.syncChip} onClick={retrySync}>
+      Not saving — tap to retry
+    </button>
+  ) : null;
 
   const scene = (
     <SceneStage
@@ -89,6 +101,14 @@ export function AppShell() {
               {label}
             </button>
           ))}
+          <button
+            className={styles.railItem}
+            aria-haspopup="dialog"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <GearIcon />
+            Settings
+          </button>
           <div className={styles.railFoot}>
             {state.people.map((person, index) => {
               const assigned = week.totals.byPerson[person.id] ?? 0;
@@ -124,8 +144,10 @@ export function AppShell() {
           </div>
         </section>
 
+        {syncChip}
         <TaskDetail />
         <ClusterDetail />
+        <SettingsSheet />
       </div>
     );
   }
@@ -145,6 +167,14 @@ export function AppShell() {
               <br />
               {formatMins(remaining)} left
             </p>
+            <button
+              className={styles.gear}
+              aria-label="Settings"
+              aria-haspopup="dialog"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <GearIcon />
+            </button>
           </div>
           <div className={styles.progress}>
             <Meter fraction={progress} colour="var(--p2)" />
@@ -170,8 +200,10 @@ export function AppShell() {
         ))}
       </nav>
 
+      {syncChip}
       <TaskDetail />
       <ClusterDetail />
+      <SettingsSheet />
     </div>
   );
 }

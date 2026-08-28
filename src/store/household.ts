@@ -65,6 +65,11 @@ interface HouseholdStore {
   status: 'loading' | 'ready' | 'unsaved';
   /** Set when a write was retried to exhaustion and given up on. */
   writeFailed: string | null;
+  /**
+   * A given-up write was dropped from the queue, so retrying means re-sending
+   * the whole current state, not nudging a queue that no longer holds it.
+   */
+  retrySync(): void;
   hydrate(repo?: Repository): Promise<void>;
   /** Stop listening and drop any pending writes. Called on sign-out. */
   detach(): void;
@@ -251,6 +256,11 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
 
     flushWrites() {
       outbox?.flush();
+    },
+
+    retrySync() {
+      set({ writeFailed: null });
+      persist({ kind: 'all' });
     },
 
     hasUnsentWrites: () => (outbox ? !outbox.isIdle() : false),

@@ -67,21 +67,39 @@
   color: var(--text-3);
   text-decoration: line-through;
 }
-.toggle {
+/* In-the-rotation switch. Deliberately not a checkbox: a tick beside a job
+   name reads as "done", and this is not that. */
+.rotation {
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  line-height: 1;
+  position: relative;
+  width: 36px;
+  height: 21px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
 }
-.toggle[aria-pressed='true'] {
+.rotation i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition:
+    translate var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+.rotation[aria-checked='true'] {
   background: var(--p2);
   border-color: var(--p2);
-  color: var(--ink);
+}
+.rotation[aria-checked='true'] i {
+  translate: 15px 0;
+  background: var(--ink);
 }
 .remove {
   flex: 0 0 auto;
@@ -96,17 +114,43 @@
   background: var(--alert-wash);
   color: var(--alert);
 }
+.addOpen {
+  display: block;
+  width: 100%;
+  padding: var(--s2) var(--s3);
+  margin-bottom: var(--s2);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  transition:
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.addOpen:hover {
+  color: var(--p1);
+  border-color: var(--p1);
+}
+.addBlock {
+  padding-bottom: var(--s3);
+  margin-bottom: var(--s2);
+  border-bottom: 1px solid var(--line-faint);
+}
 .add {
   display: grid;
   grid-template-columns: 1fr 88px;
   gap: var(--s2);
-  margin-top: var(--s3);
 }
 .addRow {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: var(--s2);
   margin-top: var(--s2);
+  align-items: end;
 }
 .kv {
   display: flex;

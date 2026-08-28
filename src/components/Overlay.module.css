@@ -78,6 +78,8 @@
   display: flex;
   justify-content: center;
   padding: var(--s3) 0 var(--s1);
+  touch-action: none;
+  cursor: grab;
 }
 .grip i {
   width: 36px;

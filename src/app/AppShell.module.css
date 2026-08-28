@@ -46,6 +46,45 @@
   margin-top: var(--s2);
 }
 
+.gear {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 38px;
+  height: 38px;
+  margin: -4px -6px 0 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.gear:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+/* ---- a write that gave up, wherever you are ---- */
+.syncChip {
+  position: fixed;
+  top: calc(var(--safe-t) + var(--s2));
+  left: 50%;
+  translate: -50% 0;
+  z-index: 40;
+  padding: 7px 14px;
+  border: 1px solid var(--alert);
+  border-radius: var(--r-full);
+  background: var(--ink);
+  color: var(--alert);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: var(--shadow-panel);
+}
+
 /* ---- content ---- */
 .content {
   flex: 1 1 auto;

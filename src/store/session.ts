@@ -185,7 +185,7 @@ export const useSession = create<SessionStore>((set, get) => ({
   async setPassword(password) {
     set({ busy: true, error: null });
     try {
-      const { error } = await supabase().auth.updateUser({ password });
+      const { error } = await supabase().auth.updateUser({ password, data: { has_password: true } });
       if (error) throw error;
       return true;
     } catch (error) {

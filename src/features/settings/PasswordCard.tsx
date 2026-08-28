@@ -3,7 +3,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Field, TextInput } from '@/components/Field';
 import { useSession } from '@/store/session';
-import styles from './SplitView.module.css';
+import styles from './Settings.module.css';
 
 /**
  * A way out of the email loop.
@@ -17,13 +17,16 @@ import styles from './SplitView.module.css';
 export function PasswordCard() {
   const setPassword = useSession((s) => s.setPassword);
   const busy = useSession((s) => s.busy);
+  const hasPassword = useSession(
+    (s) => s.session?.user.user_metadata?.['has_password'] === true,
+  );
   const [value, setValue] = useState('');
   const [done, setDone] = useState(false);
 
   const tooShort = value.length > 0 && value.length < 8;
 
   return (
-    <Card title="Password">
+    <Card title="Password" aside={hasPassword ? 'set' : undefined}>
       {done ? (
         <p className={styles.note} style={{ marginTop: 0 }}>
           Set. You can now sign in with your email and this password, without waiting for a link.
@@ -31,8 +34,9 @@ export function PasswordCard() {
       ) : (
         <>
           <p className={styles.note} style={{ marginTop: 0, marginBottom: 'var(--s3)' }}>
-            Optional. Setting one lets you sign in on a new device without waiting for an emailed
-            link, which is worth having — the built-in mailer only allows a few an hour.
+            {hasPassword
+              ? 'You have one. Typing a new password here replaces it.'
+              : 'Optional. Setting one lets you sign in on a new device without waiting for an emailed link, which is worth having — the built-in mailer only allows a few an hour.'}
           </p>
           <Field label="New password">
             {(id) => (
@@ -63,7 +67,7 @@ export function PasswordCard() {
                 });
               }}
             >
-              {busy ? 'Saving…' : 'Set password'}
+              {busy ? 'Saving…' : hasPassword ? 'Change password' : 'Set password'}
             </Button>
           </div>
         </>

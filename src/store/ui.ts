@@ -21,6 +21,7 @@ interface UiStore {
   hideDone: boolean;
   sceneMode: SceneMode;
   showFurniture: boolean;
+  settingsOpen: boolean;
   /**
    * Section cut height in metres, or null before a plan is loaded — the
    * ceiling belongs to the home, not to this store, and hardcoding one meant
@@ -40,6 +41,7 @@ interface UiStore {
   toggleHideDone(): void;
   setSceneMode(mode: SceneMode): void;
   toggleFurniture(): void;
+  setSettingsOpen(open: boolean): void;
   setCut(metres: number): void;
 }
 
@@ -56,6 +58,7 @@ export const useUi = create<UiStore>((set) => ({
   hideDone: false,
   sceneMode: '3d',
   showFurniture: true,
+  settingsOpen: false,
   cut: null,
 
   setTab: (tab) => set((s) => ({ tab, openRoom: tab === 'rooms' ? s.openRoom : null })),
@@ -70,5 +73,6 @@ export const useUi = create<UiStore>((set) => ({
   toggleHideDone: () => set((s) => ({ hideDone: !s.hideDone })),
   setSceneMode: (sceneMode) => set({ sceneMode }),
   toggleFurniture: () => set((s) => ({ showFurniture: !s.showFurniture })),
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setCut: (cut) => set({ cut }),
 }));

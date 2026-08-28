@@ -83,6 +83,10 @@
   max-width: calc(100% - 90px);
 }
 
+.tintSeg {
+  background: rgba(20, 23, 26, 0.82);
+}
+
 .legend {
   position: absolute;
   right: var(--s4);
@@ -115,7 +119,11 @@
   .caption {
     display: none;
   }
-  .legend {
+  .tintSeg {
+  background: rgba(20, 23, 26, 0.82);
+}
+
+.legend {
     top: auto;
     bottom: var(--s3);
     right: 58px;

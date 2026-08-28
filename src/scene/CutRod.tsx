@@ -72,6 +72,7 @@ export function CutRod({ value, min, max, onChange }: Props) {
       <div className={styles.track} />
       <div className={styles.ticks}>{ticks}</div>
       <div className={styles.fill} style={{ height: `${(value / max) * 100}%` }}>
+        <span className={styles.handle} aria-hidden />
         <span className={styles.value}>{value.toFixed(2)} m</span>
       </div>
       <span className={styles.cap}>Cut</span>

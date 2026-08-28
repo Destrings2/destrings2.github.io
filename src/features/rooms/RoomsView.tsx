@@ -39,6 +39,7 @@ export function RoomsView() {
     settled.current = true;
   }, [openRoom]);
 
+  const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [mins, setMins] = useState('10');
   const [cadence, setCadence] = useState<Cadence>('weekly');
@@ -91,17 +92,79 @@ export function RoomsView() {
         </p>
       </Card>
 
-      <Card title="Jobs">
-        {here.length === 0 && <p className={styles.hint}>Nothing here yet.</p>}
+      <Card title="Jobs" aside={here.length ? `${here.length}` : undefined}>
+        {adding ? (
+          <div className={styles.addBlock}>
+            <div className={styles.add}>
+              <Field label="Add a job">
+                {(id) => (
+                  <TextInput
+                    id={id}
+                    autoFocus
+                    value={name}
+                    placeholder="What needs doing"
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && submit()}
+                  />
+                )}
+              </Field>
+              <Field label="Minutes">
+                {(id) => (
+                  <TextInput
+                    id={id}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    value={mins}
+                    onChange={(e) => setMins(e.target.value)}
+                  />
+                )}
+              </Field>
+            </div>
+            <div className={styles.addRow}>
+              <Field label="How often">
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={cadence}
+                    onChange={(e) => setCadence(e.target.value as Cadence)}
+                  >
+                    {CADENCE_ORDER.map((key) => (
+                      <option key={key} value={key}>
+                        {CADENCE[key].label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <Button onClick={() => setAdding(false)}>Done</Button>
+              <Button variant="primary" onClick={submit} disabled={!name.trim()}>
+                Add
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button className={styles.addOpen} onClick={() => setAdding(true)}>
+            + Add a job
+          </button>
+        )}
+
+        {here.length === 0 && !adding && <p className={styles.hint}>Nothing here yet.</p>}
         {here.map((chore) => (
           <div key={chore.id} className={`${styles.chore} ${chore.enabled ? '' : styles.off}`}>
             <button
-              className={styles.toggle}
-              aria-pressed={chore.enabled}
-              aria-label={chore.enabled ? `Turn off ${chore.name}` : `Turn on ${chore.name}`}
+              role="switch"
+              className={styles.rotation}
+              aria-checked={chore.enabled}
+              title={chore.enabled ? 'In the rotation' : 'Out of the rotation'}
+              aria-label={
+                chore.enabled
+                  ? `Take ${chore.name} out of the rotation`
+                  : `Put ${chore.name} back in the rotation`
+              }
               onClick={() => toggleChore(chore.id)}
             >
-              {chore.enabled ? '✓' : ''}
+              <i />
             </button>
             <div className={styles.body}>
               <span>{chore.name}</span>
@@ -120,52 +183,6 @@ export function RoomsView() {
             </button>
           </div>
         ))}
-
-        <div className={styles.add}>
-          <Field label="Add a job">
-            {(id) => (
-              <TextInput
-                id={id}
-                value={name}
-                placeholder="What needs doing"
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && submit()}
-              />
-            )}
-          </Field>
-          <Field label="Minutes">
-            {(id) => (
-              <TextInput
-                id={id}
-                type="number"
-                inputMode="numeric"
-                min={1}
-                value={mins}
-                onChange={(e) => setMins(e.target.value)}
-              />
-            )}
-          </Field>
-        </div>
-        <div className={styles.addRow}>
-          <Field label="How often">
-            {(id) => (
-              <Select
-                id={id}
-                value={cadence}
-                onChange={(e) => setCadence(e.target.value as Cadence)}
-              >
-                {CADENCE_ORDER.map((key) => (
-                  <option key={key} value={key}>
-                    {CADENCE[key].label}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-          <Button variant="primary" onClick={submit} disabled={!name.trim()}>
-            Add
-          </Button>
-        </div>
       </Card>
 
     </>

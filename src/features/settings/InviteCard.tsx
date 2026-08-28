@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { useSession } from '@/store/session';
-import styles from './SplitView.module.css';
+import styles from './Settings.module.css';
 
 /**
  * How the second person gets in.

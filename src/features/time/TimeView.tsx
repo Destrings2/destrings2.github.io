@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { PRESETS } from '@/data/defaultAvailability';
@@ -16,6 +16,9 @@ export function TimeView() {
   // Painting mutates a working copy and commits once, so a drag across
   // forty cells is one store write rather than forty.
   const painting = useRef<{ personId: PersonId; value: boolean; grid: boolean[][] } | null>(null);
+
+  // Clearing a grid throws away hand-painted hours, so it asks twice.
+  const [confirmClear, setConfirmClear] = useState<PersonId | null>(null);
 
   function cellAt(x: number, y: number): HTMLElement | null {
     const element = document.elementFromPoint(x, y);
@@ -120,9 +123,23 @@ export function TimeView() {
               <Button size="sm" onClick={() => applyPreset(person.id, PRESETS.weekends)}>
                 + Weekends
               </Button>
-              <Button size="sm" onClick={() => applyPreset(person.id, null)}>
-                Clear
+              <Button
+                size="sm"
+                variant={confirmClear === person.id ? 'danger' : 'default'}
+                onClick={() => {
+                  if (confirmClear === person.id) {
+                    applyPreset(person.id, null);
+                    setConfirmClear(null);
+                  } else setConfirmClear(person.id);
+                }}
+              >
+                {confirmClear === person.id ? 'Tap again to clear' : 'Clear'}
               </Button>
+              {confirmClear === person.id && (
+                <Button size="sm" onClick={() => setConfirmClear(null)}>
+                  Cancel
+                </Button>
+              )}
             </div>
           </Card>
         );

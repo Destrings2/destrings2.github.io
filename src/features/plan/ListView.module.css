@@ -1,3 +1,6 @@
+.hideDone {
+  margin-left: auto;
+}
 .filters {
   display: flex;
   gap: var(--s1);

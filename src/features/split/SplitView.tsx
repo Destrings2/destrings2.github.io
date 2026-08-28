@@ -1,28 +1,17 @@
-import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { Range } from '@/components/Field';
 import { averageWeekly } from '@/domain/totals';
 import { formatMins } from '@/domain/time';
 import { useWeek } from '@/hooks/useWeek';
 import { Meter } from '@/components/Meter';
 import { useHousehold } from '@/store/household';
-import { useSession } from '@/store/session';
-import { InviteCard } from './InviteCard';
 import { PeopleCard } from './PeopleCard';
-import { PasswordCard } from './PasswordCard';
 import styles from './SplitView.module.css';
 
 export function SplitView() {
   const state = useHousehold((s) => s.state);
-  const { setDailyCap, resetLedger, resetAll, isLocalOnly } = useHousehold();
-  const writeFailed = useHousehold((s) => s.writeFailed);
-  const localOnly = isLocalOnly();
-  const signOut = useSession((s) => s.signOut);
-  const householdName = useSession((s) => s.household?.name ?? null);
+  const { resetLedger } = useHousehold();
   const week = useWeek();
-
-  const [confirming, setConfirming] = useState(false);
 
   const free = week.week.meta.free;
   const totalFree = free.reduce((s, f) => s + f, 0);
@@ -36,15 +25,6 @@ export function SplitView() {
 
   return (
     <>
-      {writeFailed && (
-        <Card accent title="Not saving">
-          <p className={styles.note} style={{ marginTop: 0 }}>
-            A change couldn&rsquo;t be saved after several tries. Everything still works here, but
-            this device is out of step until the connection comes back.
-          </p>
-        </Card>
-      )}
-
       <Card title="This week">
         <div className={styles.kv}>
           <span>Jobs due</span>
@@ -119,61 +99,7 @@ export function SplitView() {
         </div>
       </Card>
 
-      {!localOnly && <InviteCard />}
-
-      {!localOnly && <PasswordCard />}
-
-      {!localOnly && (
-        <Card title="Household">
-          <div className={styles.kv}>
-            <span>Signed in to</span>
-            <span>{householdName ?? '—'}</span>
-          </div>
-          <p className={styles.note}>Changes sync to everyone in this household.</p>
-          <div style={{ marginTop: 'var(--s3)' }}>
-            <Button size="sm" onClick={() => void signOut()}>
-              Sign out
-            </Button>
-          </div>
-        </Card>
-      )}
-
       <PeopleCard />
-
-      <Card title="Settings">
-        <div className={styles.kv}>
-          <span>Most work in any one day</span>
-          <span>{formatMins(state.settings.dailyCap)}</span>
-        </div>
-        <Range
-          min={20}
-          max={240}
-          step={10}
-          value={state.settings.dailyCap}
-          aria-label="Daily cap in minutes"
-          onChange={(e) => setDailyCap(Number(e.target.value))}
-        />
-        <p className={styles.note}>
-          Grim jobs — the WC, the bins, the oven, the drains — alternate rather than always landing
-          on the same person. Nothing loud is scheduled after 21:00.
-        </p>
-        {localOnly && (
-          <div className={styles.actions}>
-            <Button
-              variant={confirming ? 'primary' : 'default'}
-              onClick={() => {
-                if (confirming) {
-                  void resetAll();
-                  setConfirming(false);
-                } else setConfirming(true);
-              }}
-            >
-              {confirming ? 'Tap again to wipe' : 'Reset everything'}
-            </Button>
-            {confirming && <Button onClick={() => setConfirming(false)}>Cancel</Button>}
-          </div>
-        )}
-      </Card>
     </>
   );
 }

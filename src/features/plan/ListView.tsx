@@ -53,8 +53,13 @@ export function ListView({ week }: { week: Week }) {
             {person.name}
           </Button>
         ))}
-        <Button size="sm" aria-pressed={hideDone} onClick={toggleHideDone}>
-          Hide done
+        <Button
+          size="sm"
+          className={styles.hideDone}
+          aria-pressed={hideDone}
+          onClick={toggleHideDone}
+        >
+          {hideDone ? 'Hiding done' : 'Hide done'}
         </Button>
       </div>
 

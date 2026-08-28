@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { DESKTOP_QUERY } from '@/hooks/useMediaQuery';
 import styles from './Overlay.module.css';
 
 interface Props {
@@ -32,6 +33,52 @@ export function Overlay({ open, title, onClose, children }: Props) {
     };
   }, [onClose]);
 
+  // The grip is a real control, not decoration: dragging it down closes the
+  // sheet. Only on the phone shape — the centred desktop dialog doesn't move.
+  const drag = useRef<{ startY: number; dy: number } | null>(null);
+
+  function follow(dy: number) {
+    const dialog = ref.current;
+    if (!dialog) return;
+    dialog.style.transition = 'none';
+    dialog.style.translate = `0 ${dy}px`;
+  }
+
+  function settle(close: boolean) {
+    const dialog = ref.current;
+    if (!dialog) return;
+    dialog.style.transition = '';
+    dialog.style.translate = '';
+    if (close) onClose();
+  }
+
+  const gripHandlers = {
+    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (window.matchMedia(DESKTOP_QUERY).matches) return;
+      drag.current = { startY: event.clientY, dy: 0 };
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        /* the drag still works, it just stops at the grip's edge */
+      }
+    },
+    onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => {
+      const session = drag.current;
+      if (!session) return;
+      session.dy = Math.max(0, event.clientY - session.startY);
+      follow(session.dy);
+    },
+    onPointerUp: () => {
+      const session = drag.current;
+      drag.current = null;
+      if (session) settle(session.dy > 90);
+    },
+    onPointerCancel: () => {
+      drag.current = null;
+      settle(false);
+    },
+  };
+
   return (
     <dialog
       ref={ref}
@@ -41,7 +88,7 @@ export function Overlay({ open, title, onClose, children }: Props) {
         if (event.target === ref.current) onClose();
       }}
     >
-      <div className={styles.grip}>
+      <div className={styles.grip} {...gripHandlers}>
         <i />
       </div>
       <header className={styles.head}>

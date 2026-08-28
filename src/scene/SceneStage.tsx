@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Button } from '@/components/Button';
+import { Segmented } from '@/components/Segmented';
 import type { Floorplan } from '@/data/floorplanTypes';
 import type { RoomLoad } from '@/domain/totals';
 import type { Person } from '@/domain/types';
@@ -20,8 +21,11 @@ interface Props {
   onPickRoom(slug: string): void;
 }
 
-const TINT_LABEL: Record<TintMode, string> = { load: 'Load', who: 'Who', plain: 'Plain' };
-const NEXT_TINT: Record<TintMode, TintMode> = { load: 'who', who: 'plain', plain: 'load' };
+const TINTS = [
+  { value: 'load', label: 'Load' },
+  { value: 'who', label: 'Who' },
+  { value: 'plain', label: 'Plain' },
+] as const satisfies readonly { value: TintMode; label: string }[];
 
 export function SceneStage({ plan, load, people, tint, onTintChange, onPickRoom }: Props) {
   const { sceneMode, showFurniture, cut, openRoom, setSceneMode, toggleFurniture, setCut } =
@@ -85,9 +89,13 @@ export function SceneStage({ plan, load, people, tint, onTintChange, onPickRoom 
         >
           {sceneMode === '3d' ? 'Plan view' : '3D view'}
         </Button>
-        <Button size="sm" onClick={() => onTintChange(NEXT_TINT[tint])}>
-          Tint · {TINT_LABEL[tint]}
-        </Button>
+        <Segmented
+          options={TINTS}
+          value={tint}
+          onChange={onTintChange}
+          label="Room tint"
+          className={styles.tintSeg ?? ''}
+        />
         <Button size="sm" aria-pressed={showFurniture} onClick={toggleFurniture}>
           Furniture
         </Button>
