@@ -9,7 +9,7 @@ import {
 import { ACCENTS, nextFreeAccent } from '@/data/palette';
 import { seedToChores } from '@/data/chores';
 import { STARTER_CHORES } from '@/data/starterChores';
-import { buildPlan, freeMinutes } from '@/domain/scheduler';
+import { buildPlan, dueInstances, freeMinutes } from '@/domain/scheduler';
 import { HN, weekIndex, weekKey } from '@/domain/time';
 import { DEFAULT_CONFIG } from '@/domain/types';
 import type { Cadence, Chore, OccurrenceKey, PersonId, RoomId, WeekPlan } from '@/domain/types';
@@ -291,9 +291,14 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
    * read a week still split for whoever was there before: one person with the
    * lot, the newcomer with nothing, and the rest under "didn't fit".
    *
-   * Any week ahead whose stored free time disagrees with the free time people
-   * actually have is re-planned from what is true now. Ticks and hand
-   * placements survive, because rebuild carries them.
+   * Any week ahead that disagrees with what it would be planned from now is
+   * re-planned. Ticks and hand placements survive, because rebuild carries
+   * them.
+   *
+   * Free time is one half of that. The jobs are the other, and leaving them
+   * out left a week frozen at a moment when the jobs had failed to load
+   * looking permanently empty: nobody's hours had changed, so nothing ever
+   * marked it stale, and the empty plan was served back for good.
    */
   function resyncWeeks(draft: HouseholdState): string[] {
     const today = weekKey(new Date());
@@ -302,8 +307,20 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
 
     for (const [key, week] of Object.entries(draft.weeks)) {
       if (key < today) continue;
+
       const was = week.meta.free;
-      if (was.length === now.length && was.every((mins, i) => mins === now[i])) continue;
+      const sameFreeTime = was.length === now.length && was.every((mins, i) => mins === now[i]);
+
+      // What this week would contain if it were planned right now. The stored
+      // plan lists every occurrence — placed, unplaced and skipped alike — so
+      // the two sets match exactly when nothing has moved.
+      const due = dueInstances(draft.chores, weekIndex(new Date(`${key}T12:00:00`)));
+      const planned = new Map(week.plan.map((entry) => [entry.key, entry.mins]));
+      const sameJobs =
+        due.length === planned.size &&
+        due.every((occurrence) => planned.get(occurrence.key) === occurrence.mins);
+
+      if (sameFreeTime && sameJobs) continue;
       rebuild(draft, key);
       stale.push(key);
     }

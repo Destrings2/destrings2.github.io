@@ -90,6 +90,10 @@ function fakeBackend() {
       holding = false;
       for (const resolve of held.splice(0)) resolve();
     },
+    /** Put the server into a given state, as a fresh sign-in would find it. */
+    setServer(next: HouseholdState) {
+      server = structuredClone(next);
+    },
     /** Someone else's device changed something. */
     remoteEdit(mutate: (draft: HouseholdState) => void) {
       const draft = structuredClone(server);
@@ -284,5 +288,55 @@ describe('a week that was planned before things changed', () => {
 
     // A rename is not a reason to shuffle everybody's week.
     expect(useHousehold.getState().currentWeek().week.plan).toEqual(before.plan);
+  });
+});
+
+describe('a week frozen while the jobs were missing', () => {
+  it('fills in once the jobs come back', async () => {
+    const backend = fakeBackend();
+
+    // Exactly the state the missing column produced: a household with people
+    // and hours, no jobs at all, and a week duly planned from that — which is
+    // to say, an empty one, stored.
+    const empty = blankState();
+    empty.chores = [];
+    backend.setServer(empty);
+    await ready(backend);
+
+    expect(useHousehold.getState().currentWeek().week.plan).toHaveLength(0);
+
+    // The jobs are readable again. Nobody's free time has changed, so free
+    // time alone would never notice.
+    const withJobs = structuredClone(useHousehold.getState().state);
+    withJobs.chores = blankState().chores;
+    backend.setServer(withJobs);
+    await useHousehold.getState().hydrate(backend.repo);
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+
+    const week = useHousehold.getState().currentWeek().week;
+    expect(week.plan.length).toBeGreaterThan(0);
+    expect(week.plan.some((entry) => entry.personId != null)).toBe(true);
+  });
+
+  it('re-plans when a job is added on the other device', async () => {
+    const backend = fakeBackend();
+    await ready(backend);
+
+    const before = useHousehold.getState().currentWeek().week.plan.length;
+
+    backend.remoteEdit((draft) => {
+      draft.chores = draft.chores.filter((chore) => chore.name !== 'Grocery shop');
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+
+    const after = useHousehold.getState().currentWeek().week.plan.length;
+    expect(after).toBeLessThan(before);
+    // And no entry may name a job that is no longer there.
+    const ids = new Set(useHousehold.getState().state.chores.map((chore) => chore.id));
+    for (const entry of useHousehold.getState().currentWeek().week.plan) {
+      expect(ids.has(entry.choreId)).toBe(true);
+    }
   });
 });
