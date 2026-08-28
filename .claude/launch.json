@@ -4,32 +4,19 @@
     {
       "name": "rota",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
+      "runtimeArgs": ["run", "dev"],
       "port": 5173
     },
     {
       "name": "rota-local",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev:local"
-      ],
+      "runtimeArgs": ["run", "dev:local"],
       "port": 5174
     },
     {
       "name": "rota-preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "preview",
-        "--",
-        "--port",
-        "4173",
-        "--strictPort"
-      ],
+      "runtimeArgs": ["run", "preview", "--", "--port", "4173", "--strictPort"],
       "port": 4173
     }
   ]

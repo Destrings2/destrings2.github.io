@@ -235,22 +235,52 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
     };
   }
 
+  /**
+   * supabase-js reports a failed write by returning an error, not by
+   * throwing. Every write here awaited the result and looked no further, so
+   * a refused or failed write was indistinguishable from a successful one:
+   * the outbox was told it had landed, dropped it, and never retried. The
+   * edit then survived only until the next read, which put the server's older
+   * version back — a cell in the free-time grid that turned on and then
+   * quietly turned itself off again.
+   *
+   * Nothing here is allowed to ignore an error now, so a write that fails is
+   * retried, and one that keeps failing says so.
+   */
+  async function must<T extends { error: unknown }>(result: PromiseLike<T>): Promise<T> {
+    const settled = await result;
+    const error = settled.error as { message?: string; code?: string } | null;
+    if (error) {
+      // `||` not `??`: an error with an empty message would otherwise throw
+      // an Error saying nothing at all.
+      throw new Error(error.message || `write refused (${error.code || 'unknown'})`);
+    }
+    return settled;
+  }
+
   async function commit(state: HouseholdState, change: Change): Promise<void> {
     switch (change.kind) {
       case 'settings':
-        await client
-          .from('households')
-          .update({ daily_cap: state.settings.dailyCap, tint: state.settings.tint })
-          .eq('id', householdId);
+        await must(
+          client
+            .from('households')
+            .update({ daily_cap: state.settings.dailyCap, tint: state.settings.tint })
+            .eq('id', householdId),
+        );
         return;
 
       case 'members':
+        // Each one checked. These run in parallel, so the await is on the
+        // Promise.all rather than on the calls themselves — which is exactly
+        // how this branch escaped the first pass at checking errors.
         await Promise.all(
           state.people.map((person) =>
-            client
-              .from('members')
-              .update({ display_name: person.name, colour: person.colour })
-              .eq('id', person.id),
+            must(
+              client
+                .from('members')
+                .update({ display_name: person.name, colour: person.colour })
+                .eq('id', person.id),
+            ),
           ),
         );
         return;
@@ -258,11 +288,13 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
       case 'chore': {
         if (change.op === 'remove') {
           // Soft delete: a hard one resurrects on the other device.
-          await client
-            .from('chores')
-            .update({ deleted_at: new Date().toISOString() })
-            .eq('id', change.id)
-            .eq('household_id', householdId);
+          await must(
+            client
+              .from('chores')
+              .update({ deleted_at: new Date().toISOString() })
+              .eq('id', change.id)
+              .eq('household_id', householdId),
+          );
           return;
         }
 
@@ -284,11 +316,13 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
         if (change.op === 'add') {
           // Upsert rather than insert: a retried write after a response that
           // never arrived must not create the chore twice.
-          await client.from('chores').upsert({ id: chore.id, ...row });
+          await must(client.from('chores').upsert({ id: chore.id, ...row }));
           return;
         }
 
-        await client.from('chores').update(row).eq('id', change.id).eq('household_id', householdId);
+        await must(
+          client.from('chores').update(row).eq('id', change.id).eq('household_id', householdId),
+        );
         return;
       }
 
@@ -300,20 +334,22 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
             if (on) slots.push([dow, H0 + index]);
           }),
         );
-        await client.rpc('set_availability', { target_member: change.personId, slots });
+        await must(client.rpc('set_availability', { target_member: change.personId, slots }));
         return;
       }
 
       case 'week': {
         const week = state.weeks[change.weekKey];
         if (!week) return;
-        await client.from('week_plans').upsert({
-          household_id: householdId,
-          week_start: change.weekKey,
-          plan: week.plan,
-          meta: week.meta,
-          generated_at: new Date(week.generatedAt).toISOString(),
-        });
+        await must(
+          client.from('week_plans').upsert({
+            household_id: householdId,
+            week_start: change.weekKey,
+            plan: week.plan,
+            meta: week.meta,
+            generated_at: new Date(week.generatedAt).toISOString(),
+          }),
+        );
         return;
       }
 
@@ -321,47 +357,55 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
         const week = state.weeks[change.weekKey];
         const override = week?.overrides[change.occurrence];
         if (!override) {
-          await client
-            .from('overrides')
-            .delete()
-            .eq('household_id', householdId)
-            .eq('week_start', change.weekKey)
-            .eq('occurrence_key', change.occurrence);
+          await must(
+            client
+              .from('overrides')
+              .delete()
+              .eq('household_id', householdId)
+              .eq('week_start', change.weekKey)
+              .eq('occurrence_key', change.occurrence),
+          );
           return;
         }
-        await client.from('overrides').upsert({
-          household_id: householdId,
-          week_start: change.weekKey,
-          occurrence_key: change.occurrence,
-          member_id: override.personId,
-          day: override.day,
-          at_minutes: override.at,
-          skipped: override.skip,
-          source: 'app',
-        });
+        await must(
+          client.from('overrides').upsert({
+            household_id: householdId,
+            week_start: change.weekKey,
+            occurrence_key: change.occurrence,
+            member_id: override.personId,
+            day: override.day,
+            at_minutes: override.at,
+            skipped: override.skip,
+            source: 'app',
+          }),
+        );
         return;
       }
 
       case 'completion': {
         if (!change.added) {
-          await client
-            .from('completions')
-            .delete()
-            .eq('household_id', householdId)
-            .eq('week_start', change.weekKey)
-            .eq('occurrence_key', change.occurrence);
+          await must(
+            client
+              .from('completions')
+              .delete()
+              .eq('household_id', householdId)
+              .eq('week_start', change.weekKey)
+              .eq('occurrence_key', change.occurrence),
+          );
           return;
         }
         const entry = state.weeks[change.weekKey]?.plan.find((e) => e.key === change.occurrence);
         if (!entry?.personId) return;
-        await client.from('completions').upsert({
-          household_id: householdId,
-          week_start: change.weekKey,
-          occurrence_key: change.occurrence,
-          chore_id: entry.choreId,
-          member_id: entry.personId,
-          mins: entry.mins,
-        });
+        await must(
+          client.from('completions').upsert({
+            household_id: householdId,
+            week_start: change.weekKey,
+            occurrence_key: change.occurrence,
+            chore_id: entry.choreId,
+            member_id: entry.personId,
+            mins: entry.mins,
+          }),
+        );
         return;
       }
 
