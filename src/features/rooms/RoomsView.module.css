@@ -2,25 +2,13 @@
   display: flex;
   /* Never squashed by a column flex parent, whichever shell it is in. */
   flex: 0 0 auto;
+  /* Wraps rather than scrolls. It was a hidden-scrollbar strip, which meant
+     any room past the edge was simply unreachable: nothing said there was
+     more, and reaching it wanted a gesture a mouse does not readily make.
+     A home has few enough rooms that showing all of them costs a line. */
+  flex-wrap: wrap;
   gap: var(--s1);
-  overflow-x: auto;
-  scrollbar-width: none;
-  /* Bleed to the screen edge so the strip scrolls under it, not against it. */
-  margin: 0 calc(-1 * var(--s4));
-  padding: 2px var(--s4);
-  /* It scrolls, but with the scrollbar hidden a chip sliced off at the edge
-     reads as broken rather than as more to come. Fading the ends says which
-     it is. */
-  mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    #000 var(--s4),
-    #000 calc(100% - var(--s4)),
-    transparent 100%
-  );
-}
-.switcher::-webkit-scrollbar {
-  display: none;
+  padding: 2px 0;
 }
 .roomChip {
   flex: 0 0 auto;

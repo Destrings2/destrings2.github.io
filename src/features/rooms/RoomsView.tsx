@@ -23,23 +23,6 @@ export function RoomsView() {
   const week = useWeek();
 
   const isDesktop = useIsDesktop();
-  const switcherRef = useRef<HTMLDivElement>(null);
-  const settled = useRef(false);
-
-  // A tap on the model (or a chip off-screen) should leave the active room
-  // visible in the strip, without scrolling the page itself.
-  useEffect(() => {
-    const host = switcherRef.current;
-    const active = host?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (!host || !active) return;
-    host.scrollTo({
-      left: active.offsetLeft - (host.clientWidth - active.offsetWidth) / 2,
-      // Instant on first paint; animated only for changes the user can see.
-      behavior: settled.current ? 'smooth' : 'auto',
-    });
-    settled.current = true;
-  }, [openRoom]);
-
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -80,7 +63,7 @@ export function RoomsView() {
 
   return (
     <>
-      <div className={styles.switcher} ref={switcherRef} role="group" aria-label="Rooms">
+      <div className={styles.switcher} role="group" aria-label="Rooms">
         {roomOptions(plan).map((option) => (
           <button
             key={option.key}
