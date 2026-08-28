@@ -7,7 +7,8 @@ import {
   type GridSpec,
 } from '@/data/defaultAvailability';
 import { ACCENTS, nextFreeAccent } from '@/data/palette';
-import { seedToChores } from '@/data/seedChores';
+import { seedToChores } from '@/data/chores';
+import { STARTER_CHORES } from '@/data/starterChores';
 import { buildPlan } from '@/domain/scheduler';
 import { HN, weekIndex, weekKey } from '@/domain/time';
 import { DEFAULT_CONFIG } from '@/domain/types';
@@ -23,7 +24,7 @@ export function blankState(): HouseholdState {
       { id: 'a', name: 'Me', colour: ACCENTS[0]!.hex },
       { id: 'b', name: 'Partner', colour: ACCENTS[1]!.hex },
     ],
-    chores: seedToChores(),
+    chores: seedToChores(STARTER_CHORES),
     availability: {
       a: gridFrom(DEFAULT_WEEKDAY_EVENINGS),
       b: gridFrom(DEFAULT_SPLIT_WEEKEND),

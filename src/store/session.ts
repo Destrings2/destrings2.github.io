@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
-import { EXAMPLE_HOME_DOCUMENT } from '@/data/exampleHome';
 import { ACCENTS } from '@/data/palette';
-import { SEED_CHORES } from '@/data/seedChores';
+import { STARTER_CHORES } from '@/data/starterChores';
+import { STARTER_FLAT } from '@/data/starterFlat';
 import {
   appUrl,
   clearInviteFromUrl,
@@ -213,18 +213,19 @@ export const useSession = create<SessionStore>((set, get) => ({
       });
       if (error) throw error;
 
-      // A new household starts with a home and a chore list, so the first
-      // screen is a real plan rather than an empty one.
+      // A new household starts with the generic flat and a chore list, so the
+      // first screen is a real plan rather than an empty one. They edit it into
+      // their own place; nobody else's home is shipped to them.
       const { data: propertyId, error: seedError } = await client.rpc('seed_property', {
         target_household: householdId,
-        document: EXAMPLE_HOME_DOCUMENT,
+        document: STARTER_FLAT,
       });
       if (seedError) throw seedError;
 
       const { error: choreError } = await client.rpc('seed_chores', {
         target_household: householdId,
         target_property: propertyId,
-        chore_list: SEED_CHORES.map((c) => ({
+        chore_list: STARTER_CHORES.map((c) => ({
           key: c.key,
           room: c.room,
           name: c.name,

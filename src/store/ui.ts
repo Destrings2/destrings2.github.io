@@ -21,8 +21,12 @@ interface UiStore {
   hideDone: boolean;
   sceneMode: SceneMode;
   showFurniture: boolean;
-  /** Section cut height in metres. The scene owns the ceiling constant. */
-  cut: number;
+  /**
+   * Section cut height in metres, or null before a plan is loaded — the
+   * ceiling belongs to the home, not to this store, and hardcoding one meant
+   * the rod opened above the ceiling of any flat with a lower one.
+   */
+  cut: number | null;
 
   setTab(tab: Tab): void;
   setPlanView(view: PlanView): void;
@@ -52,7 +56,7 @@ export const useUi = create<UiStore>((set) => ({
   hideDone: false,
   sceneMode: '3d',
   showFurniture: true,
-  cut: 2.55,
+  cut: null,
 
   setTab: (tab) => set((s) => ({ tab, openRoom: tab === 'rooms' ? s.openRoom : null })),
   setPlanView: (planView) => set({ planView }),

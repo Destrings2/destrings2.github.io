@@ -14,6 +14,10 @@ import type { LevelDocument, PropertyDocument } from './schema';
  * should still render whatever part of it is coherent.
  */
 export function resolveLevel(document: PropertyDocument, level: LevelDocument): Floorplan {
+  // Every optional field is read defensively. The schema gives them defaults,
+  // but a document that has not been through the parser — one written by hand,
+  // or read straight out of a table — arrives without them, and the scene
+  // should render what it can rather than throwing.
   const nodes = new Map(level.nodes.map((n) => [n.id, n]));
 
   const walls: Wall[] = [];
@@ -22,7 +26,7 @@ export function resolveLevel(document: PropertyDocument, level: LevelDocument): 
     const to = nodes.get(wall.to);
     if (!from || !to) continue;
 
-    const openings: Opening[] = wall.openings.map((o) => ({
+    const openings: Opening[] = (wall.openings ?? []).map((o) => ({
       kind: o.kind,
       from: o.from,
       to: o.to,
@@ -40,28 +44,28 @@ export function resolveLevel(document: PropertyDocument, level: LevelDocument): 
     });
   }
 
-  const stair = level.stairs[0] ?? { x0: 0, x1: 0, yTop: 0, yBot: 0, steps: 1 };
+  const stair = (level.stairs ?? [])[0] ?? { x0: 0, x1: 0, yTop: 0, yBot: 0, steps: 1 };
 
   return {
     name: document.name,
     subtitle: level.name,
-    floorAreaSqm: document.floorAreaSqm,
+    floorAreaSqm: document.floorAreaSqm ?? 0,
     ceiling: level.ceiling,
     thickness: document.defaults,
     walls,
-    bay: level.bay.map((p): Point => [p[0], p[1]]),
+    bay: (level.bay ?? []).map((p): Point => [p[0], p[1]]),
     stair: { x0: stair.x0, x1: stair.x1, yTop: stair.yTop, yBot: stair.yBot, steps: stair.steps },
     rooms: level.rooms.map((room) => ({
       slug: room.slug,
       name: room.name,
-      dimsLabel: room.dimsLabel,
-      areaSqm: room.areaSqm,
+      dimsLabel: room.dimsLabel ?? '',
+      areaSqm: room.areaSqm ?? 0,
       floorColour: room.floorColour,
-      ...(room.rects.length
-        ? { rects: room.rects.map((r): Rect => [r[0], r[1], r[2], r[3]]) }
+      ...((room.rects ?? []).length
+        ? { rects: (room.rects ?? []).map((r): Rect => [r[0], r[1], r[2], r[3]]) }
         : {}),
-      ...(room.polys.length
-        ? { polys: room.polys.map((poly) => poly.map((q): Point => [q[0], q[1]])) }
+      ...((room.polys ?? []).length
+        ? { polys: (room.polys ?? []).map((poly) => poly.map((q): Point => [q[0], q[1]])) }
         : {}),
       labelAt: [room.labelAt[0], room.labelAt[1]] as Point,
       cameraView: {
@@ -69,7 +73,7 @@ export function resolveLevel(document: PropertyDocument, level: LevelDocument): 
         distance: room.cameraView.distance,
       },
     })),
-    furniture: level.furniture.map((item) => ({
+    furniture: (level.furniture ?? []).map((item) => ({
       kind: item.kind,
       box: [item.box[0], item.box[1], item.box[2], item.box[3]] as Rect,
       ...(item.z ? { z: [item.z[0], item.z[1]] as [number, number] } : {}),

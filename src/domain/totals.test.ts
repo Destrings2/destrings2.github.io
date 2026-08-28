@@ -4,7 +4,8 @@ import {
   DEFAULT_WEEKDAY_EVENINGS,
   gridFrom,
 } from '@/data/defaultAvailability';
-import { seedToChores } from '@/data/seedChores';
+import { seedToChores } from '@/data/chores';
+import { SEED_CHORES } from '@/data/seedChores';
 import { buildPlan } from './scheduler';
 import { averageWeekly, entriesForDay, roomLoad, weekTotals } from './totals';
 import { CADENCE } from './cadence';
@@ -15,7 +16,7 @@ const PEOPLE: Person[] = [
   { id: 'a', name: 'Me', colour: '#E8B93E' },
   { id: 'b', name: 'Partner', colour: '#5FA394' },
 ];
-const CHORES = seedToChores();
+const CHORES = seedToChores(SEED_CHORES);
 
 const week: WeekPlan = buildPlan({
   people: PEOPLE,

@@ -1,5 +1,4 @@
 import { Meter } from '@/components/Meter';
-import { EXAMPLE_HOME } from '@/data/floorplan';
 import { formatMins, mondayOf } from '@/domain/time';
 import { PlanView } from '@/features/plan/PlanView';
 import { RoomsView } from '@/features/rooms/RoomsView';
@@ -11,6 +10,7 @@ import { useWeek } from '@/hooks/useWeek';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { SceneStage } from '@/scene/SceneStage';
 import { useHousehold } from '@/store/household';
+import { useProperty } from '@/store/property';
 import { useUi, type Tab } from '@/store/ui';
 import styles from './AppShell.module.css';
 import { NAV } from './nav';
@@ -42,6 +42,7 @@ export function AppShell() {
   const state = useHousehold((s) => s.state);
   const setTint = useHousehold((s) => s.setTint);
   const { tab, setTab, openRoomDetail } = useUi();
+  const plan = useProperty((s) => s.plan);
   const week = useWeek();
 
   const remaining = week.totals.total - week.totals.doneMins;
@@ -49,7 +50,7 @@ export function AppShell() {
 
   const scene = (
     <SceneStage
-      plan={EXAMPLE_HOME}
+      plan={plan}
       load={week.load}
       people={state.people}
       tint={state.settings.tint}
@@ -68,13 +69,13 @@ export function AppShell() {
         <nav className={styles.rail} aria-label="Sections">
           <div className={styles.brand}>
             <h1>
-              {EXAMPLE_HOME.name}
-              <span>{EXAMPLE_HOME.subtitle}</span>
+              {plan.name}
+              <span>{plan.subtitle}</span>
             </h1>
             <p>
               {weekRange()}
               <br />
-              {EXAMPLE_HOME.floorAreaSqm} m² · ceiling {EXAMPLE_HOME.ceiling.toFixed(2)} m
+              {plan.floorAreaSqm} m² · ceiling {plan.ceiling.toFixed(2)} m
             </p>
           </div>
           {NAV.filter((item) => item.tab !== 'home').map(({ tab: value, label, Icon }) => (

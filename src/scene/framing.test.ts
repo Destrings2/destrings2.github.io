@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { EXAMPLE_HOME } from '@/data/floorplan';
+import { EXAMPLE_HOME_DOCUMENT } from '@/data/exampleHome';
+import { resolveProperty } from '@/domain/geometry/resolve';
 import { frameFor, planPoints } from './framing';
+
+const EXAMPLE_HOME = resolveProperty(EXAMPLE_HOME_DOCUMENT);
 
 const V_FOV = (42 * Math.PI) / 180;
 

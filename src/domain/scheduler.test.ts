@@ -5,7 +5,8 @@ import {
   emptyGrid,
   gridFrom,
 } from '@/data/defaultAvailability';
-import { SEED_CHORES, seedToChores } from '@/data/seedChores';
+import { seedToChores } from '@/data/chores';
+import { SEED_CHORES } from '@/data/seedChores';
 import { buildPlan, dueInstances, freeMinutes, runsFor, subtractBusy } from './scheduler';
 import type { BuildInput } from './scheduler';
 import { DEFAULT_CONFIG } from './types';
@@ -16,7 +17,7 @@ const PEOPLE: Person[] = [
   { id: 'b', name: 'Partner', colour: '#5FA394' },
 ];
 
-const CHORES = seedToChores();
+const CHORES = seedToChores(SEED_CHORES);
 
 function input(over: Partial<BuildInput> = {}): BuildInput {
   return {

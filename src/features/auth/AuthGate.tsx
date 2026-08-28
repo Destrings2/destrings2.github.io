@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Field, TextInput } from '@/components/Field';
+import { APP_NAME, APP_TAGLINE } from '@/appName';
 import { useSession } from '@/store/session';
 import styles from './AuthGate.module.css';
 
@@ -28,8 +29,8 @@ function Splash() {
     <div className={styles.screen}>
       <div className={styles.brand}>
         <h1>
-          the example home
-          <span>house &amp; chores</span>
+          {APP_NAME}
+          <span>{APP_TAGLINE}</span>
         </h1>
       </div>
     </div>
@@ -41,8 +42,8 @@ function Shell({ children }: { children: ReactNode }) {
     <div className={styles.screen}>
       <div className={styles.brand}>
         <h1>
-          the example home
-          <span>house &amp; chores</span>
+          {APP_NAME}
+          <span>{APP_TAGLINE}</span>
         </h1>
         <p>
           A week of housework split so you each give up the same share of your own free time — not
@@ -210,7 +211,7 @@ function ChooseHousehold() {
                 <TextInput
                   id={id}
                   value={householdName}
-                  placeholder="the example home"
+                  placeholder="Home"
                   onChange={(e) => setHouseholdName(e.target.value)}
                 />
               )}
@@ -237,8 +238,8 @@ function ChooseHousehold() {
             </Button>
             <p className={styles.note}>
               Starting a household needs a code from whoever runs this. If you were sent a link to
-              join someone else&rsquo;s, use that instead. You&rsquo;ll get the the example home
-              floorplan and a starter list of 72 jobs to edit down to your own place.
+              join someone else&rsquo;s, use that instead. You&rsquo;ll start with a plain
+              one-bedroom flat and a list of jobs to edit into your own place.
             </p>
           </div>
         </Card>

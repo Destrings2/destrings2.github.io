@@ -54,15 +54,25 @@ The base path is worked out by `actions/configure-pages` and passed to Vite, so
 a project site at `/<repo>/` and a user site at `/` both work. Every link the
 app builds goes through `appUrl()` so it carries the base.
 
+## What the bundle contains
+
+A generic one-bedroom flat and a chore list that describes nobody: no pets, no
+bay window, no second bedroom. A household's real geometry lives in Postgres
+behind row-level security and is fetched once you are signed in, so the
+deployed JavaScript never carries anyone's floorplan.
+
+Checked at build time, not by eye:
+
+```
+grep -c "Example\|Bedroom 1\|Reception\|bay window\|litter" dist/assets/*.js
+```
+
+should be zero. The real flat stays in the repository as
+`src/data/exampleHome.ts`, imported only by tests, so it is tree-shaken out —
+**but it is still in the source**. If the repository itself goes public, that
+file goes with it. Keep the repo private, or move it out.
+
 ## Before making the repository public
-
-Two things to know.
-
-**The floorplan is in the bundle.** `src/data/exampleHome.ts` is the geometry of
-a real flat — room sizes, wall positions, where the bed is — and it is compiled
-into the JavaScript anyone can download. The same document is already seeded in
-Postgres, so the fix is to load it from there and drop it from the bundle. Worth
-doing before the repo goes public, and not otherwise.
 
 **Anyone can reach the sign-in screen.** They can create an account and then do
 nothing at all: no household, no way to make one, no data. That is by design,

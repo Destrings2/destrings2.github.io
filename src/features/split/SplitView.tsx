@@ -154,8 +154,8 @@ export function SplitView() {
           onChange={(e) => setDailyCap(Number(e.target.value))}
         />
         <p className={styles.note}>
-          Grim jobs — the WC, the litter tray, the bins, the oven — alternate rather than always
-          landing on the same person. Nothing loud is scheduled after 21:00.
+          Grim jobs — the WC, the bins, the oven, the drains — alternate rather than always landing
+          on the same person. Nothing loud is scheduled after 21:00.
         </p>
         {localOnly && (
           <div className={styles.actions}>

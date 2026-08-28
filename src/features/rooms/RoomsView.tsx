@@ -6,10 +6,10 @@ import { CADENCE, CADENCE_ORDER } from '@/domain/cadence';
 import { averageWeekly } from '@/domain/totals';
 import { formatMins } from '@/domain/time';
 import type { Cadence, RoomId } from '@/domain/types';
-import { EXAMPLE_HOME } from '@/data/floorplan';
 import { useWeek } from '@/hooks/useWeek';
 import { useHousehold } from '@/store/household';
-import { loadKey, ROOM_OPTIONS, roomName } from '@/store/selectors';
+import { useProperty } from '@/store/property';
+import { loadKey, roomNameIn, roomOptions } from '@/store/selectors';
 import { useUi } from '@/store/ui';
 import styles from './RoomsView.module.css';
 
@@ -17,6 +17,7 @@ export function RoomsView() {
   const state = useHousehold((s) => s.state);
   const { addChore, toggleChore, removeChore } = useHousehold();
   const { openRoom, openRoomDetail } = useUi();
+  const plan = useProperty((s) => s.plan);
   const week = useWeek();
 
   const [name, setName] = useState('');
@@ -24,7 +25,7 @@ export function RoomsView() {
   const [cadence, setCadence] = useState<Cadence>('weekly');
 
   const roomId: RoomId = openRoom;
-  const room = EXAMPLE_HOME.rooms.find((r) => r.slug === openRoom);
+  const room = plan.rooms.find((r) => r.slug === openRoom);
   const here = state.chores.filter((c) => c.roomId === roomId);
   const load = week.load[loadKey(roomId)] ?? { left: 0, total: 0, byPerson: {} };
 
@@ -39,7 +40,7 @@ export function RoomsView() {
   return (
     <>
       <Card
-        title={roomName(roomId)}
+        title={roomNameIn(plan, roomId)}
         aside={room ? `${room.dimsLabel} · ${room.areaSqm} m²` : undefined}
       >
         <div className={styles.kv}>
@@ -137,7 +138,7 @@ export function RoomsView() {
 
       <Card title="Jump to">
         <div className={styles.jump}>
-          {ROOM_OPTIONS.map((option) => (
+          {roomOptions(plan).map((option) => (
             <Button
               key={option.key}
               size="sm"

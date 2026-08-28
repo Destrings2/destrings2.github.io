@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Button } from '@/components/Button';
 import type { Floorplan } from '@/data/floorplanTypes';
 import type { RoomLoad } from '@/domain/totals';
@@ -28,6 +28,15 @@ export function SceneStage({ plan, load, people, tint, onTintChange, onPickRoom 
     useUi();
   const reducedMotion = usePrefersReducedMotion();
 
+  // The cut belongs to whichever home is loaded. Opening at its ceiling, and
+  // never above it, means a flat with a lower ceiling than the last one does
+  // not start with the rod off the end of its own track.
+  useEffect(() => {
+    if (cut === null || cut > plan.ceiling) setCut(plan.ceiling);
+  }, [plan.ceiling, cut, setCut]);
+
+  const cutHeight = cut === null ? plan.ceiling : Math.min(cut, plan.ceiling);
+
   const tints = useMemo(
     () => roomTints(plan, load, people, tint, openRoom),
     [plan, load, people, tint, openRoom],
@@ -36,7 +45,7 @@ export function SceneStage({ plan, load, people, tint, onTintChange, onPickRoom 
 
   const hostRef = useFlatScene({
     plan,
-    cut,
+    cut: cutHeight,
     showFurniture,
     mode: sceneMode,
     tints,
@@ -114,7 +123,7 @@ export function SceneStage({ plan, load, people, tint, onTintChange, onPickRoom 
         </div>
       )}
 
-      <CutRod value={cut} min={0.6} max={plan.ceiling} onChange={setCut} />
+      <CutRod value={cutHeight} min={0.6} max={plan.ceiling} onChange={setCut} />
     </div>
   );
 }

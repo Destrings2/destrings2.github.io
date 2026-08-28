@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
+import { APP_NAME } from '@/appName';
 import { AppShell } from '@/app/AppShell';
 import { supabase } from '@/api/supabase';
 import { supabaseRepository } from '@/api/supabaseRepository';
 import { AuthGate } from '@/features/auth/AuthGate';
 import { useHousehold } from '@/store/household';
+import { useProperty } from '@/store/property';
 import { indexedDbRepository } from '@/store/repository';
 import { useSession } from '@/store/session';
 import styles from './App.module.css';
@@ -28,15 +30,20 @@ function Household() {
   const hydrate = useHousehold((s) => s.hydrate);
   const detach = useHousehold((s) => s.detach);
   const flushWrites = useHousehold((s) => s.flushWrites);
+  const loadProperty = useProperty((s) => s.load);
+  const showStarterPlan = useProperty((s) => s.useStarter);
 
   useEffect(() => {
     if (stage === 'local') {
       void hydrate(indexedDbRepository);
+      // No backend, so no real geometry to fetch: the generic flat it is.
+      showStarterPlan();
     } else if (stage === 'ready' && householdId) {
       void hydrate(supabaseRepository(supabase(), householdId));
+      void loadProperty(supabase(), householdId);
     }
     return () => detach();
-  }, [stage, householdId, hydrate, detach]);
+  }, [stage, householdId, hydrate, detach, loadProperty, showStarterPlan]);
 
   // Signal comes back, or the phone is put away mid-edit: send what is queued
   // rather than waiting out a debounce that may never finish.
@@ -58,7 +65,7 @@ function Household() {
   if (status === 'loading') {
     return (
       <div className={styles.boot}>
-        <span>the example home</span>
+        <span>{APP_NAME}</span>
       </div>
     );
   }

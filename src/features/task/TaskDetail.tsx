@@ -8,7 +8,8 @@ import { DAYS, formatMins, hhmm } from '@/domain/time';
 import type { Chore, PersonId, PlanEntry } from '@/domain/types';
 import { useWeek } from '@/hooks/useWeek';
 import { useHousehold } from '@/store/household';
-import { choreById, roomName } from '@/store/selectors';
+import { useProperty } from '@/store/property';
+import { choreById, roomNameIn } from '@/store/selectors';
 import { useUi } from '@/store/ui';
 import styles from './TaskDetail.module.css';
 import { nearestOffered, TIMES } from './times';
@@ -51,6 +52,7 @@ function TaskForm({ entry, chore, weekKey, done }: FormProps) {
   const state = useHousehold((s) => s.state);
   const { toggleDone, place, skip, unskip, automate } = useHousehold();
   const { setTaskSheet, setTab, openRoomDetail } = useUi();
+  const plan = useProperty((s) => s.plan);
   const overrides = useHousehold((s) => s.state.weeks[weekKey]?.overrides ?? {});
 
   const [person, setPerson] = useState<PersonId | null>(
@@ -83,7 +85,7 @@ function TaskForm({ entry, chore, weekKey, done }: FormProps) {
             close();
           }}
         >
-          {roomName(chore.roomId)}
+          {roomNameIn(plan, chore.roomId)}
         </button>
         {' · '}
         {formatMins(entry.mins)} · {CADENCE[chore.cadence].label}

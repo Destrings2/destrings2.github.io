@@ -1,7 +1,8 @@
 import { formatMins, hhmm } from '@/domain/time';
 import type { PlanEntry } from '@/domain/types';
 import { useHousehold } from '@/store/household';
-import { choreById, personById, roomName } from '@/store/selectors';
+import { useProperty } from '@/store/property';
+import { choreById, personById, roomNameIn } from '@/store/selectors';
 import styles from './TaskRow.module.css';
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 
 export function TaskRow({ entry, done, onOpen, onToggle, showPerson = true }: Props) {
   const state = useHousehold((s) => s.state);
+  const plan = useProperty((s) => s.plan);
   const chore = choreById(state, entry.choreId);
   const person = personById(state, entry.personId);
   if (!chore) return null;
@@ -22,7 +24,7 @@ export function TaskRow({ entry, done, onOpen, onToggle, showPerson = true }: Pr
   const bits = [
     entry.at != null ? hhmm(entry.at) : null,
     showPerson ? person?.name : null,
-    roomName(chore.roomId),
+    roomNameIn(plan, chore.roomId),
   ].filter(Boolean);
 
   return (
