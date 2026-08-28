@@ -11,7 +11,9 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "test:db": "vitest run --config vitest.db.config.ts",
+    "test:all": "npm run test && npm run test:db"
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",
@@ -23,14 +25,20 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "embedded-postgres": "^18.4.0-beta.17",
     "oxlint": "^1.79.0",
+    "pg": "^8.23.0",
     "prettier": "^3.9.6",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
+  },
+  "allowScripts": {
+    "@embedded-postgres/darwin-arm64@18.4.0-beta.17": true
   }
 }
