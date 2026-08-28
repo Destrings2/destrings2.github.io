@@ -58,9 +58,18 @@ interface SessionStore {
 }
 
 function message(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error && 'message' in error) return String(error.message);
-  return 'Something went wrong. Try again.';
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error && 'message' in error
+        ? String(error.message)
+        : '';
+  // Supabase says "Signups not allowed"; here that is not a fault but the
+  // point, and the way out is an invite rather than trying again.
+  if (/signups? not allowed|signup is disabled/i.test(raw)) {
+    return 'This address has no account here. You need an invite link from someone already in the household.';
+  }
+  return raw || 'Something went wrong. Try again.';
 }
 
 /** Which household this device last had open. */
@@ -158,7 +167,19 @@ export const useSession = create<SessionStore>((set, get) => ({
       const redirect = invite ? appUrl(`join/${invite}`) : appUrl('');
       const { error } = await supabase().auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: redirect },
+        options: {
+          emailRedirectTo: redirect,
+          // Only somebody holding an invite may bring a new account into
+          // existence. Without one this signs in an address that already
+          // has an account and otherwise refuses, rather than quietly
+          // creating an account and mailing whoever was typed in.
+          //
+          // This governs what the app does, not what the project allows:
+          // the publishable key is in the bundle, so the auth endpoints can
+          // be called directly. Turning off sign-ups on the project is what
+          // actually closes that, and this matches the app to it.
+          shouldCreateUser: Boolean(invite),
+        },
       });
       if (error) throw error;
       set({ linkSentTo: email.trim() });

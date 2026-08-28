@@ -156,7 +156,9 @@ function SignIn() {
 
           <p className={styles.note}>
             {mode === 'link'
-              ? 'We send a link; opening it signs you in.'
+              ? pendingInvite
+                ? 'We send a link; opening it signs you in.'
+                : 'We send a link to an address that already has an account here. New accounts need an invite.'
               : pendingInvite
                 ? 'Sign in, or create an account if this is your first time.'
                 : 'For an account that already has a password set.'}
