@@ -70,6 +70,36 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
     idBySlug = new Map([...slugById].map(([id, slug]) => [slug, id]));
   }
 
+  const CHORE_COLUMNS = 'id, room_id, name, mins, cadence, noisy, grim, enabled, seed_key';
+
+  /**
+   * Read the jobs, tolerating a database that has not caught up.
+   *
+   * Pages deploys on push; migrations are applied by hand, so the client can
+   * be a release ahead of the schema. Naming a column that does not exist yet
+   * fails the whole select, and reading that as "no jobs" is how a missing
+   * migration came to look like an empty household. A preference is worth
+   * nothing next to that, so it is asked for separately and given up on.
+   */
+  async function choresFor(id: string) {
+    const withPreference = await client
+      .from('chores')
+      .select(`${CHORE_COLUMNS}, preferred_by`)
+      .eq('household_id', id)
+      .is('deleted_at', null)
+      .order('created_at');
+
+    // 42703: undefined_column. Anything else is a real failure and is raised.
+    if (!withPreference.error || withPreference.error.code !== '42703') return withPreference;
+
+    return client
+      .from('chores')
+      .select(CHORE_COLUMNS)
+      .eq('household_id', id)
+      .is('deleted_at', null)
+      .order('created_at');
+  }
+
   async function load(): Promise<HouseholdState | null> {
     await loadRoomMap();
     const [household, members, chores, availability, weeks, overrides, completions] =
@@ -84,12 +114,7 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
           .select('id, display_name, colour, user_id')
           .eq('household_id', householdId)
           .order('created_at'),
-        client
-          .from('chores')
-          .select('id, room_id, name, mins, cadence, noisy, grim, preferred_by, enabled, seed_key')
-          .eq('household_id', householdId)
-          .is('deleted_at', null)
-          .order('created_at'),
+        choresFor(householdId),
         client.from('availability').select('member_id, dow, hour'),
         client
           .from('week_plans')
@@ -106,6 +131,22 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
       ]);
 
     if (household.error || !household.data) return null;
+
+    // A failed read is not an empty household. Swallowing these with `?? []`
+    // is what let a missing column present itself as a week with no jobs in
+    // it, no minutes left, and nothing to show.
+    for (const [what, result] of [
+      ['members', members],
+      ['jobs', chores],
+      ['availability', availability],
+      ['weeks', weeks],
+      ['overrides', overrides],
+      ['completions', completions],
+    ] as const) {
+      if (result.error) {
+        throw new Error(`Could not read the ${what}: ${result.error.message}`);
+      }
+    }
 
     const memberRows = (members.data ?? []) as Row['member'][];
     const people = memberRows.map((m, index) => ({

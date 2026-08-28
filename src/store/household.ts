@@ -83,6 +83,8 @@ interface HouseholdStore {
   status: 'loading' | 'ready' | 'unsaved';
   /** Set when a write was retried to exhaustion and given up on. */
   writeFailed: string | null;
+  /** Set when the household could not be read at all. */
+  loadError: string | null;
   /**
    * A given-up write was dropped from the queue, so retrying means re-sending
    * the whole current state, not nudging a queue that no longer holds it.
@@ -167,7 +169,13 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
   let touched: string[] = [];
 
   async function refresh() {
-    const fresh = await repository.load();
+    let fresh: HouseholdState | null;
+    try {
+      fresh = await repository.load();
+    } catch (error) {
+      set({ loadError: error instanceof Error ? error.message : 'Could not read the household.' });
+      return;
+    }
     if (!fresh) return;
 
     // Guarding before the fetch is not enough: it is what happens *during*
@@ -183,6 +191,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
 
     const next = reconcile(fresh);
     const restaled = resyncWeeks(next);
+    set({ loadError: null });
     // Postgres broadcasts a change to everyone subscribed, including whoever
     // made it, so every edit came back as an echo and replaced the whole
     // state with an identical copy. Nothing was wrong with the result, but
@@ -315,6 +324,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     state: blankState(),
     status: 'loading',
     writeFailed: null,
+    loadError: null,
 
     async hydrate(repo) {
       if (repo && repo !== repository) {
@@ -322,8 +332,19 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
         unsubscribe = null;
         repository = repo;
       }
-      set({ status: 'loading' });
-      const loaded = await repository.load();
+      set({ status: 'loading', loadError: null });
+      let loaded: HouseholdState | null = null;
+      try {
+        loaded = await repository.load();
+      } catch (error) {
+        // Showing the starter list here would look like a household that had
+        // lost everything, which is worse than saying nothing loaded.
+        set({
+          status: 'ready',
+          loadError: error instanceof Error ? error.message : 'Could not load this household.',
+        });
+        return;
+      }
       const state = loaded ? reconcile(loaded) : blankState();
       const restaled = resyncWeeks(state);
       set({ state, status: 'ready' });

@@ -44,6 +44,7 @@ export function AppShell() {
   const state = useHousehold((s) => s.state);
   const setTint = useHousehold((s) => s.setTint);
   const writeFailed = useHousehold((s) => s.writeFailed);
+  const loadError = useHousehold((s) => s.loadError);
   const retrySync = useHousehold((s) => s.retrySync);
   const { tab, setTab, openRoomDetail, setSettingsOpen } = useUi();
   const plan = useProperty((s) => s.plan);
@@ -56,7 +57,11 @@ export function AppShell() {
 
   // A failed write matters wherever you are, not just on the tab that had
   // the card. Fixed, so the scene's full-bleed view shows it too.
-  const syncChip = writeFailed ? (
+  const syncChip = loadError ? (
+    <span className={styles.syncChip} role="status" title={loadError}>
+      Couldn&rsquo;t load this household
+    </span>
+  ) : writeFailed ? (
     <button className={styles.syncChip} onClick={retrySync}>
       Not saving — tap to retry
     </button>
