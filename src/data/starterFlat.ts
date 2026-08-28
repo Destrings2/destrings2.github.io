@@ -5,8 +5,7 @@
 // not describe anybody's real home. Real geometry lives in Postgres and is
 // fetched once you are signed in.
 //
-// Every junction is a shared node, so unlike the imported the example home this is
-// a properly connected graph and its rooms can be derived from its walls.
+// Every junction is a shared node, so this is a properly connected graph and its rooms can be derived from its walls.
 import type { PropertyDocument } from '@/domain/geometry/schema';
 
 export const STARTER_FLAT: PropertyDocument = {

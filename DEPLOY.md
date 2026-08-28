@@ -64,11 +64,11 @@ deployed JavaScript never carries anyone's floorplan.
 Checked at build time, not by eye:
 
 ```
-grep -c "Example\|Bedroom 1\|Reception\|bay window\|litter" dist/assets/*.js
+grep -c "the example home\|Bedroom 1\|Reception\|bay window\|litter" dist/assets/*.js
 ```
 
 should be zero. The real flat stays in the repository as
-`src/data/exampleHome.ts`, imported only by tests, so it is tree-shaken out —
+`src/data/rotaRoad.ts`, imported only by tests, so it is tree-shaken out —
 **but it is still in the source**. If the repository itself goes public, that
 file goes with it. Keep the repo private, or move it out.
 

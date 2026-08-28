@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EXAMPLE_HOME_DOCUMENT } from '@/data/exampleHome';
+import { SLAB_FLAT } from '@/data/__fixtures__/slabFlat';
+import { STARTER_FLAT } from '@/data/starterFlat';
 import { findFaces, signedArea } from './faces';
 import type { LevelDocument } from './schema';
 import { applyWeld, planWeld } from './weld';
@@ -103,20 +104,23 @@ describe('findFaces', () => {
     ).toEqual([]);
   });
 
-  it('finds nothing in the example home as imported', () => {
-    // The honest result: only 4 of 52 endpoints coincide, so there is no
-    // connected graph to walk. This is what the weld tool is for.
-    const faces = findFaces(EXAMPLE_HOME_DOCUMENT.levels[0]! as LevelDocument);
-    expect(faces).toEqual([]);
+  it('finds nothing in a flat drawn as overlapping slabs', () => {
+    // The honest result: no two walls share a corner, so there is no connected
+    // graph to walk. This is what the weld tool is for.
+    expect(findFaces(SLAB_FLAT)).toEqual([]);
   });
 
-  it('finds rooms in the example home once its corners are joined', () => {
-    const source = structuredClone(EXAMPLE_HOME_DOCUMENT.levels[0]!) as LevelDocument;
-    const welded = applyWeld(source, planWeld(source, 0.35));
+  it('finds rooms in that flat once its corners are joined', () => {
+    const welded = applyWeld(SLAB_FLAT, planWeld(SLAB_FLAT, 0.3));
     const faces = findFaces(welded);
     // Not the finished article — that is the Phase 8 editor's job with a human
     // watching — but welding turns "nothing at all" into real enclosed space.
     expect(faces.length).toBeGreaterThan(0);
     expect(faces[0]!.areaSqm).toBeGreaterThan(1);
+  });
+
+  it('finds every room in a flat already drawn as a graph', () => {
+    const faces = findFaces(STARTER_FLAT.levels[0]! as LevelDocument);
+    expect(faces.length).toBeGreaterThanOrEqual(4);
   });
 });

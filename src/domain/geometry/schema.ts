@@ -15,7 +15,7 @@ import { z } from 'zod';
  * model you can draw and one you can only look at — drag a corner and the
  * walls that meet there follow. Retrofitting vertex identity later would be a
  * migration over other people's homes, so it goes in from the start even
- * though the example home itself imports with none of its corners shared.
+ * though a flat drawn as overlapping slabs imports with none of its corners shared.
  */
 
 const finite = z.number().finite();

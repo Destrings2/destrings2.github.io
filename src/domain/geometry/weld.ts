@@ -13,11 +13,11 @@ export interface WeldPlan {
  * Work out which corners would join at a given tolerance, without changing
  * anything.
  *
- * The preview matters here. the example home was drawn as overlapping thick slabs,
- * so at 30mm only 6 of its 52 endpoints join and at 130mm — a full interior
- * wall thickness — still only 12 do. Welding is therefore something a person
- * chooses to do to a specific corner while looking at the result, not something
- * an importer does on their behalf.
+ * The preview matters here. A flat drawn as overlapping thick slabs can look
+ * entirely correct and still have no two walls sharing a corner, and how many
+ * join depends entirely on how far you are willing to move them. Welding is
+ * therefore something a person chooses to do to a specific corner while looking
+ * at the result, not something an importer does on their behalf.
  */
 export function planWeld(level: LevelDocument, tolerance: number): WeldPlan {
   const nodes = level.nodes;

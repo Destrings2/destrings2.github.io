@@ -6,7 +6,7 @@ import {
   gridFrom,
 } from '@/data/defaultAvailability';
 import { seedToChores } from '@/data/chores';
-import { SEED_CHORES } from '@/data/seedChores';
+import { STARTER_CHORES } from '@/data/starterChores';
 import { buildPlan, dueInstances, freeMinutes, runsFor, subtractBusy } from './scheduler';
 import type { BuildInput } from './scheduler';
 import { DEFAULT_CONFIG } from './types';
@@ -17,7 +17,7 @@ const PEOPLE: Person[] = [
   { id: 'b', name: 'Partner', colour: '#5FA394' },
 ];
 
-const CHORES = seedToChores(SEED_CHORES);
+const CHORES = seedToChores(STARTER_CHORES);
 
 function input(over: Partial<BuildInput> = {}): BuildInput {
   return {
@@ -335,7 +335,7 @@ describe('buildPlan — skipping', () => {
 
 describe('buildPlan — jobs that do not fit', () => {
   it('surfaces them as unplaced rather than dropping them', () => {
-    // One free hour for the whole week, against 72 chores.
+    // One free hour for the whole week, against the entire list.
     const week = buildPlan(input({ availability: { a: gridFrom([[0, 19, 20]]), b: emptyGrid() } }));
     const unplaced = week.plan.filter((e) => !e.skipped && e.personId === null);
     expect(unplaced.length).toBeGreaterThan(0);
@@ -430,16 +430,16 @@ describe('freeMinutes', () => {
   });
 });
 
-describe('the seed list', () => {
-  it('has 72 chores with unique keys', () => {
-    expect(SEED_CHORES).toHaveLength(72);
-    expect(new Set(SEED_CHORES.map((c) => c.key)).size).toBe(72);
+describe('the starter list', () => {
+  it('has unique keys, so re-seeding never duplicates', () => {
+    expect(STARTER_CHORES.length).toBeGreaterThan(40);
+    expect(new Set(STARTER_CHORES.map((c) => c.key)).size).toBe(STARTER_CHORES.length);
   });
 
   it('puts whole-home chores on a null room rather than a magic string', () => {
-    const wholeHome = SEED_CHORES.filter((c) => c.room === null);
+    const wholeHome = STARTER_CHORES.filter((c) => c.room === null);
     expect(wholeHome.length).toBeGreaterThan(0);
-    expect(SEED_CHORES.some((c) => c.room === 'flat')).toBe(false);
+    expect(STARTER_CHORES.some((c) => c.room === 'flat')).toBe(false);
   });
 });
 

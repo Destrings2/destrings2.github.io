@@ -17,8 +17,8 @@ export interface Face {
  * the next one clockwise from the way you came in, which walks the boundary of
  * one face and no other.
  *
- * It finds nothing in the example home as imported, and that is the honest answer:
- * only 4 of its 52 endpoints coincide, so there is no connected graph to walk.
+ * It finds nothing in a flat drawn as overlapping slabs, and that is the honest
+ * answer: no two walls share a corner, so there is no connected graph to walk.
  * Weld the corners first and the rooms appear.
  */
 export function findFaces(level: LevelDocument): Face[] {

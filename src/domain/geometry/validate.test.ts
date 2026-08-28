@@ -1,25 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { EXAMPLE_HOME_DOCUMENT } from '@/data/exampleHome';
+import { STARTER_FLAT } from '@/data/starterFlat';
 import { validateProperty } from './validate';
 import type { PropertyDocument } from './schema';
 
-const clone = (): PropertyDocument => structuredClone(EXAMPLE_HOME_DOCUMENT) as PropertyDocument;
+const clone = (): PropertyDocument => structuredClone(STARTER_FLAT) as PropertyDocument;
 const codes = (issues: { code: string }[]) => issues.map((i) => i.code);
 
-describe('the shipped flat', () => {
+describe('the starter flat', () => {
   it('passes with no errors', () => {
-    const result = validateProperty(EXAMPLE_HOME_DOCUMENT);
+    const result = validateProperty(STARTER_FLAT);
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
   });
 
-  it('warns about the corners nothing joins to', () => {
-    // the example home was drawn as overlapping slabs, so most of its walls do not
-    // actually meet. Nothing is welded at import, so this is expected — but it
-    // should be visible rather than silent.
-    const result = validateProperty(EXAMPLE_HOME_DOCUMENT);
-    expect(codes(result.warnings)).not.toContain('wall.unknownNode');
-    expect(result.warnings.length).toBeGreaterThanOrEqual(0);
+  it('has no warnings either — it is the example everything else is judged against', () => {
+    expect(validateProperty(STARTER_FLAT).warnings).toEqual([]);
   });
 });
 
@@ -131,8 +126,9 @@ describe('warnings never block a save', () => {
 
   it('flags a stair that has wandered off the floor', () => {
     const doc = clone();
-    doc.levels[0]!.stairs[0]!.x0 = 90;
-    doc.levels[0]!.stairs[0]!.x1 = 92;
+    doc.levels[0]!.stairs = [
+      { id: 's1', x0: 90, x1: 92, yTop: 4, yBot: 2, steps: 12, goes: 'down' },
+    ];
     const result = validateProperty(doc);
     expect(result.ok).toBe(true);
     expect(codes(result.warnings)).toContain('stair.offPlate');

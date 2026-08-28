@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { EXAMPLE_HOME_DOCUMENT } from '../src/data/exampleHome';
-import { SEED_CHORES } from '../src/data/seedChores';
+import { STARTER_CHORES } from '../src/data/starterChores';
+import { STARTER_FLAT } from '../src/data/starterFlat';
 import { startHarness, type Harness } from './testing/harness';
 
 let db: Harness;
@@ -280,7 +280,7 @@ describe('the geometry trigger', () => {
   let household: string;
   let property: string;
 
-  const level = () => structuredClone(EXAMPLE_HOME_DOCUMENT.levels[0]!);
+  const level = () => structuredClone(STARTER_FLAT.levels[0]!);
 
   beforeAll(async () => {
     household = await startHousehold(alice, 'Geometry', 'Alice');
@@ -380,7 +380,7 @@ describe('seeding a new household', () => {
     property = await db.as(bob, async () => {
       const [row] = await q<{ seed_property: string }>(
         `select seed_property($1, $2::jsonb) as seed_property`,
-        [household, JSON.stringify(EXAMPLE_HOME_DOCUMENT)],
+        [household, JSON.stringify(STARTER_FLAT)],
       );
       return row!.seed_property;
     });
@@ -396,7 +396,7 @@ describe('seeding a new household', () => {
         [property],
       ),
     );
-    expect(rooms.map((r) => r.slug)).toEqual(['bed1', 'bath', 'kitchen', 'recep', 'bed2', 'hall']);
+    expect(rooms.map((r) => r.slug)).toEqual(['living', 'kitchen', 'bedroom', 'bath']);
 
     const [level] = await db.as(bob, () =>
       q<{ nodes: number; walls: number; furniture: number }>(
@@ -407,11 +407,16 @@ describe('seeding a new household', () => {
         [property],
       ),
     );
-    expect(level).toEqual({ nodes: 48, walls: 26, furniture: 37 });
+    const expected = STARTER_FLAT.levels[0]!;
+    expect(level).toEqual({
+      nodes: expected.nodes.length,
+      walls: expected.walls.length,
+      furniture: expected.furniture.length,
+    });
   });
 
   it('seeds the chore list against the rooms it just made', async () => {
-    const payload = SEED_CHORES.map((c) => ({
+    const payload = STARTER_CHORES.map((c) => ({
       key: c.key,
       room: c.room,
       name: c.name,
@@ -428,7 +433,7 @@ describe('seeding a new household', () => {
     const chores = await db.as(bob, () =>
       q<{ n: string }>(`select count(*) as n from chores where household_id = $1`, [household]),
     );
-    expect(Number(chores[0]!.n)).toBe(72);
+    expect(Number(chores[0]!.n)).toBe(STARTER_CHORES.length);
 
     // Whole-home jobs get a null room rather than a magic string.
     const [wholeHome] = await db.as(bob, () =>
@@ -437,7 +442,7 @@ describe('seeding a new household', () => {
         [household],
       ),
     );
-    expect(Number(wholeHome!.n)).toBe(SEED_CHORES.filter((c) => c.room === null).length);
+    expect(Number(wholeHome!.n)).toBe(STARTER_CHORES.filter((c) => c.room === null).length);
 
     const [kitchen] = await db.as(bob, () =>
       q<{ n: string }>(
@@ -447,11 +452,11 @@ describe('seeding a new household', () => {
         [household],
       ),
     );
-    expect(Number(kitchen!.n)).toBe(SEED_CHORES.filter((c) => c.room === 'kitchen').length);
+    expect(Number(kitchen!.n)).toBe(STARTER_CHORES.filter((c) => c.room === 'kitchen').length);
   });
 
   it('does not duplicate a job when the seed list is applied again', async () => {
-    const payload = SEED_CHORES.map((c) => ({
+    const payload = STARTER_CHORES.map((c) => ({
       key: c.key,
       room: c.room,
       name: c.name,
@@ -464,13 +469,13 @@ describe('seeding a new household', () => {
     const [after] = await db.as(bob, () =>
       q<{ n: string }>(`select count(*) as n from chores where household_id = $1`, [household]),
     );
-    expect(Number(after!.n)).toBe(72);
+    expect(Number(after!.n)).toBe(STARTER_CHORES.length);
   });
 
   it('will not seed into a household you are not in', async () => {
     await expect(
       db.as(stranger, () =>
-        q(`select seed_property($1, $2::jsonb)`, [household, JSON.stringify(EXAMPLE_HOME_DOCUMENT)]),
+        q(`select seed_property($1, $2::jsonb)`, [household, JSON.stringify(STARTER_FLAT)]),
       ),
     ).rejects.toThrow(/not in that household/);
   });

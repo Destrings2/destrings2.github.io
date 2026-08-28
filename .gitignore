@@ -25,3 +25,8 @@ dist-ssr
 
 .env.local
 .env*.local
+
+# Anything describing a real home stays out of the repository. Put private
+# fixtures — a floorplan document, a chore list written for one place, an
+# exported prototype — in here; nothing tracked depends on them.
+/private/

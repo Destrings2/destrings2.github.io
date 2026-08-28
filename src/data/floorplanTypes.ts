@@ -84,7 +84,7 @@ export interface Floorplan {
   ceiling: number;
   thickness: { exterior: number; interior: number };
   walls: Wall[];
-  /** The bay window's floor polygon, drawn as part of the reception room. */
+  /** Extra floor polygons drawn with a room but not part of its rectangles. */
   bay: Point[];
   stair: Stair;
   rooms: Room[];
