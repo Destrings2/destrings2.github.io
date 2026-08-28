@@ -1,3 +1,6 @@
+import type { z } from 'zod';
+import type { furnitureKindSchema } from '@/domain/geometry/schema';
+
 /**
  * Plan coordinates, in metres: +x east, +y north.
  * The scene layer maps (x, y) -> (x, 0, -y). Nothing else should know that.
@@ -58,8 +61,12 @@ export interface Stair {
   steps: number;
 }
 
-export type FurnitureKind =
-  'bed' | 'box' | 'sofa' | 'wc' | 'bath' | 'oven' | 'fridge' | 'litterTray';
+/**
+ * Derived from the schema so the two cannot drift. The scene only branches on
+ * 'bed'; every other kind draws as a box and exists so that a room's contents
+ * can suggest chores — a wc implies cleaning the wc.
+ */
+export type FurnitureKind = z.infer<typeof furnitureKindSchema>;
 
 export interface Furniture {
   kind: FurnitureKind;
