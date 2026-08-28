@@ -23,7 +23,9 @@ export function SettingsSheet() {
   const { setDailyCap, resetAll, isLocalOnly } = useHousehold();
   const localOnly = isLocalOnly();
   const signOut = useSession((s) => s.signOut);
-  const householdName = useSession((s) => s.household?.name ?? null);
+  const household = useSession((s) => s.household);
+  const households = useSession((s) => s.households);
+  const switchHousehold = useSession((s) => s.switchHousehold);
 
   const [confirming, setConfirming] = useState(false);
 
@@ -59,12 +61,36 @@ export function SettingsSheet() {
         <>
           <InviteCard />
           <PasswordCard />
-          <Card title="Household">
-            <div className={styles.kv}>
-              <span>Signed in to</span>
-              <span>{householdName ?? '—'}</span>
-            </div>
-            <p className={styles.note}>Changes sync to everyone in this household.</p>
+          <Card title={households.length > 1 ? 'Households' : 'Household'}>
+            {households.length > 1 ? (
+              <>
+                <span className={styles.label}>Showing</span>
+                <div className={styles.households}>
+                  {households.map((candidate) => (
+                    <Button
+                      key={candidate.id}
+                      size="sm"
+                      aria-pressed={candidate.id === household?.id}
+                      onClick={() => switchHousehold(candidate.id)}
+                    >
+                      {candidate.name}
+                    </Button>
+                  ))}
+                </div>
+                <p className={styles.note}>
+                  You&rsquo;re in more than one. Each has its own home, jobs and running total; this
+                  device remembers whichever you pick.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className={styles.kv}>
+                  <span>Signed in to</span>
+                  <span>{household?.name ?? '—'}</span>
+                </div>
+                <p className={styles.note}>Changes sync to everyone in this household.</p>
+              </>
+            )}
             <div style={{ marginTop: 'var(--s3)' }}>
               <Button size="sm" onClick={() => void signOut()}>
                 Sign out

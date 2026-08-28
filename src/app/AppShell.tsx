@@ -47,6 +47,8 @@ export function AppShell() {
   const retrySync = useHousehold((s) => s.retrySync);
   const { tab, setTab, openRoomDetail, setSettingsOpen } = useUi();
   const plan = useProperty((s) => s.plan);
+  const planSource = useProperty((s) => s.source);
+  const planError = useProperty((s) => s.error);
   const week = useWeek();
 
   const remaining = week.totals.total - week.totals.doneMins;
@@ -63,6 +65,8 @@ export function AppShell() {
   const scene = (
     <SceneStage
       plan={plan}
+      isStarter={planSource === 'starter'}
+      loadError={planError}
       load={week.load}
       people={state.people}
       tint={state.settings.tint}

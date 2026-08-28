@@ -513,6 +513,72 @@ describe('seeding a new household', () => {
   });
 });
 
+describe('reading a home back', () => {
+  // The client fetches the property, then its levels, then the rooms on those
+  // levels, as three separate reads. Each one passes through its own policy,
+  // so a home that seeds perfectly can still come back empty for the person
+  // reading it — and the app's only signal for that is a silent fall back to
+  // the starter flat. This walks the same three steps.
+  async function readAsClient(user: string, household: string) {
+    return db.as(user, async () => {
+      const [property] = await q<{ id: string; name: string }>(
+        `select id, name from properties where household_id = $1 order by created_at limit 1`,
+        [household],
+      );
+      if (!property) return { property: null, levels: 0, rooms: [] as string[] };
+
+      const levels = await q<{ id: string }>(
+        `select id from levels where property_id = $1 order by ordinal`,
+        [property.id],
+      );
+      const rooms = levels.length
+        ? await q<{ slug: string }>(
+            `select slug from rooms where level_id = any($1::uuid[]) order by sort`,
+            [levels.map((l) => l.id)],
+          )
+        : [];
+      return { property, levels: levels.length, rooms: rooms.map((r) => r.slug) };
+    });
+  }
+
+  let household: string;
+
+  beforeAll(async () => {
+    household = await startHousehold(alice, 'Readable', 'Alice');
+    await db.as(alice, () =>
+      q(`select seed_property($1, $2::jsonb)`, [household, JSON.stringify(STARTER_FLAT)]),
+    );
+  });
+
+  it('gives the founder every part of it', async () => {
+    const seen = await readAsClient(alice, household);
+    expect(seen.property?.name).toBe(STARTER_FLAT.name);
+    expect(seen.levels).toBe(STARTER_FLAT.levels.length);
+    expect(seen.rooms).toEqual(['living', 'kitchen', 'bedroom', 'bath']);
+  });
+
+  it('gives someone who joined the same home, not an empty one', async () => {
+    const code = await db.as(alice, async () => {
+      const [row] = await q<{ create_invite: string }>(
+        `select create_invite($1) as create_invite`,
+        [household],
+      );
+      return row!.create_invite;
+    });
+    await db.as(bob, () => q(`select join_household($1, 'Bob')`, [code]));
+
+    const seen = await readAsClient(bob, household);
+    expect(seen.property?.name).toBe(STARTER_FLAT.name);
+    expect(seen.levels).toBe(STARTER_FLAT.levels.length);
+    expect(seen.rooms).toEqual(['living', 'kitchen', 'bedroom', 'bath']);
+  });
+
+  it('gives an outsider nothing, so the app shows the starter instead', async () => {
+    const seen = await readAsClient(stranger, household);
+    expect(seen.property).toBeNull();
+  });
+});
+
 describe('the ledger', () => {
   let household: string;
   let member: string;

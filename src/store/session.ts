@@ -30,6 +30,8 @@ interface SessionStore {
   stage: SessionStage;
   session: Session | null;
   household: HouseholdSummary | null;
+  /** Every household this account belongs to, oldest first. */
+  households: HouseholdSummary[];
   /** An invite code picked up from the address bar, if there was one. */
   pendingInvite: string | null;
   busy: boolean;
@@ -46,6 +48,8 @@ interface SessionStore {
   /** Set or change the password on the account already signed in. */
   setPassword(password: string): Promise<boolean>;
   signOut(): Promise<void>;
+  /** Switch to another household this account is in. */
+  switchHousehold(id: string): void;
   createHousehold(name: string, displayName: string, founderCode: string): Promise<void>;
   joinHousehold(code: string, displayName: string): Promise<void>;
   /** Mint or fetch this household's invite link, to hand to the other person. */
@@ -59,10 +63,14 @@ function message(error: unknown): string {
   return 'Something went wrong. Try again.';
 }
 
+/** Which household this device last had open. */
+const LAST_HOUSEHOLD = 'rota:household';
+
 export const useSession = create<SessionStore>((set, get) => ({
   stage: isSupabaseConfigured ? 'loading' : 'local',
   session: null,
   household: null,
+  households: [],
   pendingInvite: null,
   busy: false,
   error: null,
@@ -89,27 +97,43 @@ export const useSession = create<SessionStore>((set, get) => ({
         return;
       }
       set({ session });
+      // Ordered, and not truncated to one. An unordered limit(1) let Postgres
+      // hand back whichever row it liked, so an account in two households
+      // could land in a different one from one sign-in to the next — and the
+      // other household's home would look like it had gone missing.
       const { data: memberships, error } = await client
         .from('members')
-        .select('id, household_id, households(id, name)')
-        .limit(1);
+        .select('id, household_id, created_at, households(id, name)')
+        .order('created_at');
 
       if (error) {
         set({ stage: 'noHousehold', error: message(error) });
         return;
       }
-      const first = memberships?.[0] as
-        | { id: string; household_id: string; households: { id: string; name: string } | null }
-        | undefined;
+      interface Named {
+        id: string;
+        name: string;
+      }
+      // An embedded to-one relation comes back as an object, but PostgREST
+      // types it as an array; take either rather than trusting one shape.
+      const rows = (memberships ?? []) as unknown as {
+        id: string;
+        household_id: string;
+        households: Named | Named[] | null;
+      }[];
+      const households: HouseholdSummary[] = rows.flatMap((row) => {
+        const household = Array.isArray(row.households) ? row.households[0] : row.households;
+        return household ? [{ id: household.id, name: household.name, memberId: row.id }] : [];
+      });
 
-      if (!first?.households) {
-        set({ stage: 'noHousehold', household: null });
+      if (households.length === 0) {
+        set({ stage: 'noHousehold', household: null, households: [] });
         return;
       }
-      set({
-        stage: 'ready',
-        household: { id: first.households.id, name: first.households.name, memberId: first.id },
-      });
+
+      // Whichever one was last opened on this device, so switching sticks.
+      const remembered = households.find((h) => h.id === localStorage.getItem(LAST_HOUSEHOLD));
+      set({ stage: 'ready', households, household: remembered ?? households[0]! });
     }
   },
 
@@ -199,6 +223,17 @@ export const useSession = create<SessionStore>((set, get) => ({
   async signOut() {
     await supabase().auth.signOut();
     set({ session: null, household: null, stage: 'signedOut', linkSentTo: null });
+  },
+
+  switchHousehold(id) {
+    const next = get().households.find((h) => h.id === id);
+    if (!next) return;
+    try {
+      localStorage.setItem(LAST_HOUSEHOLD, id);
+    } catch {
+      // Private browsing: the switch still works for this session.
+    }
+    set({ household: next });
   },
 
   async createHousehold(name, displayName, founderCode) {

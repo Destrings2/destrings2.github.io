@@ -14,6 +14,10 @@ import { useFlatScene } from './useFlatScene';
 
 interface Props {
   plan: Floorplan;
+  /** True when the plan is the bundled stand-in rather than this household's. */
+  isStarter: boolean;
+  /** Set when the real home failed to load, as opposed to not existing. */
+  loadError: string | null;
   load: Record<string, RoomLoad>;
   people: Person[];
   tint: TintMode;
@@ -27,7 +31,16 @@ const TINTS = [
   { value: 'plain', label: 'Plain' },
 ] as const satisfies readonly { value: TintMode; label: string }[];
 
-export function SceneStage({ plan, load, people, tint, onTintChange, onPickRoom }: Props) {
+export function SceneStage({
+  plan,
+  isStarter,
+  loadError,
+  load,
+  people,
+  tint,
+  onTintChange,
+  onPickRoom,
+}: Props) {
   const { sceneMode, showFurniture, cut, openRoom, setSceneMode, toggleFurniture, setCut } =
     useUi();
   const reducedMotion = usePrefersReducedMotion();
@@ -68,14 +81,26 @@ export function SceneStage({ plan, load, people, tint, onTintChange, onPickRoom 
         Everything else works normally.
       </div>
 
-      <div className={styles.caption}>
-        <h2>
-          {plan.name}
-          <span>{plan.subtitle}</span>
-        </h2>
-        <p>
-          {plan.floorAreaSqm} m² · ceiling {plan.ceiling.toFixed(2)} m
-        </p>
+      {/* Stacked in flow rather than pinned to a corner: the legend already
+          owns the top right on a phone, and a banner that overlaps it makes
+          both unreadable. */}
+      <div className={styles.topLeft}>
+        <div className={styles.caption}>
+          <h2>
+            {plan.name}
+            <span>{plan.subtitle}</span>
+          </h2>
+          <p>
+            {plan.floorAreaSqm} m² · ceiling {plan.ceiling.toFixed(2)} m
+          </p>
+        </div>
+
+        {isStarter && (
+          <div className={styles.standIn} role="status">
+            <b>{loadError ? 'Couldn’t load your home' : 'Not your home yet'}</b>
+            {loadError ?? 'This is the example flat that ships with the app.'}
+          </div>
+        )}
       </div>
 
       <div className={styles.tools}>
