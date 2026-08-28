@@ -1,0 +1,60 @@
+.grid {
+  display: grid;
+  grid-template-columns: 26px repeat(7, 1fr);
+  gap: 2px;
+  font-family: var(--mono);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.colHead,
+.rowHead {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  transition: color var(--t-fast) var(--ease);
+}
+.colHead {
+  text-align: center;
+  padding: 2px 0 var(--s1);
+}
+.rowHead {
+  align-self: center;
+  text-align: right;
+  padding-right: 3px;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.colHead:hover,
+.rowHead:hover {
+  color: var(--text);
+}
+/* A drag that starts on a cell paints; starting anywhere else scrolls. */
+.cell {
+  height: 17px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  touch-action: none;
+  transition: background var(--t-fast) var(--ease);
+}
+.cell:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.cell.on {
+  background: var(--fill);
+}
+.presets {
+  display: flex;
+  gap: var(--s1);
+  flex-wrap: wrap;
+  margin-top: var(--s3);
+}
+.note {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.8;
+  color: var(--text-3);
+  margin: 0;
+}
+.note b {
+  color: var(--text);
+  font-weight: 400;
+}

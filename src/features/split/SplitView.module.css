@@ -1,0 +1,44 @@
+.kv {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  padding: var(--s1) 0;
+}
+.kv span:first-child {
+  color: var(--text-2);
+}
+.kv span:last-child {
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.note {
+  margin: var(--s2) 0 0;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.75;
+  color: var(--text-3);
+}
+.note b {
+  color: var(--text);
+  font-weight: 400;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+  margin-top: var(--s3);
+}
+.names {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}

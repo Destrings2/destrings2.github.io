@@ -1,0 +1,224 @@
+/* ============================================================
+   Two shells, one breakpoint.
+
+   Below 1100px the app is a single column with a bottom tab bar, and the 3D
+   model is a full-bleed view of its own rather than a squeezed letterbox
+   pinned above everything else.
+
+   At 1100px and up there is room for both at once: a nav rail, the model as
+   the main stage, and the active panel beside it.
+   ============================================================ */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ---- top bar (compact only) ---- */
+.top {
+  flex: 0 0 auto;
+  padding: calc(var(--s3) + var(--safe-t)) var(--s4) var(--s2);
+  border-bottom: 1px solid var(--line);
+  background: var(--ink);
+}
+.topRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.topRow h1 {
+  font-size: var(--fs-xl);
+  line-height: 1.05;
+}
+.topRow p {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.progress {
+  margin-top: var(--s2);
+}
+
+/* ---- content ---- */
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+  padding-bottom: var(--s10);
+}
+.bleed {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ---- bottom tab bar ---- */
+.bottom {
+  flex: 0 0 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border-top: 1px solid var(--line);
+  background: var(--surface-1);
+  padding-bottom: var(--safe-b);
+}
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 54px;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color var(--t-fast) var(--ease);
+}
+.tab:hover {
+  color: var(--text-2);
+}
+.tab[aria-current='page'] {
+  color: var(--p1);
+}
+.tab[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  margin-top: -14px;
+  width: 22px;
+  height: 2px;
+  border-radius: var(--r-full);
+  background: var(--p1);
+}
+
+/* ============================================================
+   Desktop
+   ============================================================ */
+.desktop {
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--panel-w);
+  height: 100%;
+  overflow: hidden;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s5) var(--s3);
+  border-right: 1px solid var(--line);
+  background: var(--surface-1);
+  overflow-y: auto;
+}
+.brand {
+  padding: 0 var(--s2) var(--s5);
+}
+.brand h1 {
+  font-size: var(--fs-xl);
+  line-height: 1.05;
+}
+.brand h1 span {
+  display: block;
+  color: var(--p1);
+}
+.brand p {
+  margin: var(--s2) 0 0;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+}
+.railItem {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  min-height: 42px;
+  border-radius: var(--r-md);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.railItem:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+.railItem[aria-current='page'] {
+  background: var(--p1-wash);
+  color: var(--p1);
+}
+.railFoot {
+  margin-top: auto;
+  padding: var(--s4) var(--s3) 0;
+  border-top: 1px solid var(--line);
+}
+.railFoot .meter + .meter {
+  margin-top: var(--s3);
+}
+
+.stage {
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: var(--ink);
+}
+.panelHead {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s5) var(--s5) var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+.panelHead h2 {
+  font-size: var(--fs-xl);
+}
+.panelHead p {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.panelBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5) var(--s10);
+}
+
+/* The 3D model is the desktop stage, so its own tab shows the room list. */
+.hidePanelScene {
+  display: none;
+}

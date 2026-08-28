@@ -1,0 +1,108 @@
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.nav h3 {
+  font-size: var(--fs-lg);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.head {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  text-align: center;
+  padding-bottom: var(--s1);
+}
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 58px;
+  padding: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--raised);
+  text-align: left;
+  transition: background var(--t-fast) var(--ease);
+}
+.cell:hover {
+  background: var(--raised-hover);
+}
+.cell b {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.cell i {
+  display: block;
+  height: 4px;
+  border-radius: var(--r-full);
+  min-width: 0;
+}
+.cell small {
+  margin-top: auto;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.pad {
+  background: none;
+  border-color: transparent;
+  pointer-events: none;
+}
+.isToday {
+  border-color: rgba(232, 185, 62, 0.55);
+}
+.isToday b {
+  color: var(--p1);
+}
+.selected {
+  background: var(--p1-wash);
+  border-color: var(--p1);
+}
+.detail {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--line-faint);
+  width: 100%;
+  text-align: left;
+}
+.detail:last-child {
+  border-bottom: 0;
+}
+.dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.detail .body {
+  flex: 1;
+  min-width: 0;
+}
+.detail .body span {
+  display: block;
+  font-size: var(--fs-sm);
+}
+.detail .body small {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.note {
+  margin: var(--s2) 0 0;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.7;
+  color: var(--text-3);
+}

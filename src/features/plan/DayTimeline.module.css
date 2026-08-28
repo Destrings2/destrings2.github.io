@@ -1,0 +1,187 @@
+.picker {
+  display: flex;
+  gap: var(--s1);
+}
+.pick {
+  flex: 1;
+  min-height: 52px;
+  padding: var(--s1) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--raised);
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  transition: background var(--t-fast) var(--ease);
+}
+.pick b {
+  display: block;
+  font-size: var(--fs-md);
+  font-weight: 400;
+  color: var(--text);
+}
+.pick:hover {
+  background: var(--raised-hover);
+}
+.pick.isToday {
+  border-color: rgba(232, 185, 62, 0.5);
+}
+.pick[aria-pressed='true'] {
+  background: var(--text);
+  color: var(--ink);
+}
+.pick[aria-pressed='true'] b {
+  color: var(--ink);
+}
+
+.tl {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--raised);
+  overflow: hidden;
+}
+.head {
+  display: grid;
+  grid-template-columns: 30px repeat(var(--lanes), 1fr);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-1);
+}
+.head span {
+  padding: var(--s2) var(--s1);
+  text-align: center;
+  font-family: var(--cond);
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The timeline scrolls inside its own box. Scrolling the page instead would
+   push the day picker and the lane headings off the top. */
+.scroller {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-height: min(62vh, 560px);
+}
+.body {
+  position: relative;
+  margin-left: 30px;
+  touch-action: pan-y;
+}
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+.axis span {
+  position: absolute;
+  left: -28px;
+  translate: 0 -6px;
+  width: 24px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line-faint);
+}
+.lane {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-right: 1px solid var(--line-faint);
+}
+.lane:last-child {
+  border-right: 0;
+}
+.free {
+  position: absolute;
+  left: 0;
+  right: 0;
+  opacity: 0.1;
+  pointer-events: none;
+}
+.item {
+  position: absolute;
+  border: 1px solid;
+  border-left-width: 3px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  padding: 3px 6px;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: 1.2;
+  text-align: left;
+}
+.item b {
+  display: block;
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+/* Too narrow for a name: the clock alone still tells you what is going on. */
+.item.narrow {
+  font-size: 0;
+  padding: 3px 4px;
+}
+.item.narrow b {
+  font-size: var(--fs-2xs);
+}
+
+/* A run of back-to-back jobs, drawn as one. */
+.cluster {
+  position: absolute;
+  left: 2px;
+  right: 5px;
+  border: 1px dashed;
+  border-left: 3px solid;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  padding: 3px 6px;
+  overflow: hidden;
+  text-align: left;
+  font-size: var(--fs-sm);
+  line-height: 1.2;
+}
+.cluster b {
+  display: block;
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.cluster:hover {
+  background: var(--surface-3);
+}
+.item.done {
+  opacity: 0.38;
+  text-decoration: line-through;
+}
+.now {
+  position: absolute;
+  left: -6px;
+  right: 0;
+  height: 2px;
+  background: var(--alert);
+  z-index: 3;
+  pointer-events: none;
+}
+.now::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--alert);
+}

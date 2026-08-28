@@ -1,0 +1,68 @@
+.rod {
+  position: absolute;
+  right: var(--s3);
+  top: 50%;
+  translate: 0 -50%;
+  width: 30px;
+  height: min(40%, 176px);
+  touch-action: none;
+  cursor: ns-resize;
+}
+.track {
+  position: absolute;
+  inset: 0;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.1));
+  border-radius: 2px;
+}
+.ticks {
+  position: absolute;
+  inset: 0;
+}
+.ticks i {
+  position: absolute;
+  left: 0;
+  height: 1px;
+  background: var(--line);
+}
+.ticks i.major {
+  width: 100%;
+  background: var(--line-strong);
+}
+.ticks i.minor {
+  width: 8px;
+}
+.fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(232, 185, 62, 0.07);
+  border-top: 2px solid var(--p1);
+  pointer-events: none;
+}
+.value {
+  position: absolute;
+  right: calc(100% + 8px);
+  translate: 0 50%;
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  background: rgba(20, 23, 26, 0.88);
+  color: var(--p1);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.cap {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  translate: -50% 0;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--track-label);
+  color: var(--text-3);
+}

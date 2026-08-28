@@ -1,0 +1,43 @@
+.label {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: var(--s1);
+}
+/* 16px keeps iOS from zooming the page whenever a field takes focus. */
+.input,
+.select {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 16px;
+}
+.input:hover,
+.select:hover {
+  border-color: var(--line-strong);
+}
+.select {
+  appearance: none;
+  padding-right: var(--s6);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
+    linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% + 1px),
+    calc(100% - 10px) calc(50% + 1px);
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.range {
+  width: 100%;
+  accent-color: var(--p1);
+  height: var(--tap);
+}

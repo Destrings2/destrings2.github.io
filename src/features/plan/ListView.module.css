@@ -1,0 +1,71 @@
+.filters {
+  display: flex;
+  gap: var(--s1);
+  flex-wrap: wrap;
+}
+.people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+.dayHead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: var(--s2) 0 var(--s1);
+  margin: 0;
+  background: var(--ink);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.today .dayHead {
+  color: var(--p1);
+}
+.dayHead span:last-child {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+.stub {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s2) 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line-faint);
+}
+.stub:last-child {
+  border-bottom: 0;
+}
+.stub span:first-child {
+  flex: 1;
+  font-size: var(--fs-sm);
+}
+.stub span:last-child {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.faded {
+  opacity: 0.55;
+}
+.empty {
+  padding: var(--s8) var(--s4);
+  text-align: center;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.8;
+  color: var(--text-3);
+}

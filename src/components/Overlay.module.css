@@ -1,0 +1,131 @@
+/**
+ * One overlay, two shapes: a bottom sheet on a phone, a centred dialog on a
+ * desktop. Native <dialog> is doing the focus trap, the Esc key and the inert
+ * background — none of which the prototype's div-based sheet had.
+ */
+.dialog {
+  padding: 0;
+  border: 0;
+  background: var(--surface-1);
+  color: var(--text);
+  max-width: none;
+  max-height: none;
+}
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+/* ---- phone: a sheet that comes up from the bottom ---- */
+.dialog {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100%;
+  max-height: min(86vh, 86dvh);
+  border-top: 1px solid var(--line);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
+  translate: 0 0;
+  transition:
+    translate var(--t-mid) var(--ease),
+    display var(--t-mid) allow-discrete,
+    overlay var(--t-mid) allow-discrete;
+}
+.dialog:not([open]) {
+  translate: 0 100%;
+}
+@starting-style {
+  .dialog[open] {
+    translate: 0 100%;
+  }
+}
+
+@media (min-width: 1100px) {
+  .dialog {
+    inset: 0;
+    margin: auto;
+    width: min(560px, 92vw);
+    max-height: min(80vh, 720px);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-pop);
+    translate: 0 0;
+    transition:
+      opacity var(--t-mid) var(--ease),
+      scale var(--t-mid) var(--ease),
+      display var(--t-mid) allow-discrete,
+      overlay var(--t-mid) allow-discrete;
+    opacity: 1;
+    scale: 1;
+  }
+  .dialog:not([open]) {
+    translate: 0 0;
+    opacity: 0;
+    scale: 0.97;
+  }
+  @starting-style {
+    .dialog[open] {
+      opacity: 0;
+      scale: 0.97;
+    }
+  }
+}
+
+.grip {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: var(--s3) 0 var(--s1);
+}
+.grip i {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--line-strong);
+}
+@media (min-width: 1100px) {
+  .grip {
+    display: none;
+  }
+}
+
+.head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4) var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+.head h2 {
+  flex: 1;
+  font-size: var(--fs-xl);
+  line-height: 1.1;
+}
+.close {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  margin: -4px -6px 0 0;
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  font-size: 22px;
+  line-height: 1;
+}
+.close:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s4);
+  padding-bottom: calc(var(--s4) + var(--safe-b));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}

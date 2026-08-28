@@ -1,0 +1,81 @@
+.task {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s2) var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: var(--r-md);
+  background: var(--raised);
+  transition:
+    background var(--t-fast) var(--ease),
+    opacity var(--t-fast) var(--ease);
+}
+.task:hover {
+  background: var(--raised-hover);
+}
+.open {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  padding: var(--s1) 0;
+}
+.name {
+  display: block;
+  font-size: var(--fs-md);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.meta {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pin {
+  color: var(--p1);
+  margin-left: var(--s1);
+}
+.mins {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.tick {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.tick:hover {
+  border-color: var(--line-strong);
+  background: var(--raised-hover);
+}
+.done {
+  opacity: 0.45;
+}
+.done .name {
+  text-decoration: line-through;
+}
+.done .tick {
+  background: var(--p2);
+  border-color: var(--p2);
+  color: var(--ink);
+}

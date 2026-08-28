@@ -1,0 +1,10 @@
+.boot {
+  display: grid;
+  place-content: center;
+  height: 100%;
+  font-family: var(--cond);
+  font-size: var(--fs-xl);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}

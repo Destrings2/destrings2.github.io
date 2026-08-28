@@ -1,0 +1,124 @@
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: #15181b;
+  overflow: hidden;
+}
+.host {
+  position: absolute;
+  inset: 0;
+}
+.host[data-webgl-failed='true'] + .fallback {
+  display: grid;
+}
+
+.fallback {
+  display: none;
+  position: absolute;
+  inset: 0;
+  place-content: center;
+  text-align: center;
+  padding: var(--s6);
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+}
+
+/* A gradient scrim so the overlaid controls stay legible over pale floors. */
+.stage::before,
+.stage::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.stage::before {
+  top: 0;
+  height: 120px;
+  background: linear-gradient(180deg, rgba(20, 23, 26, 0.72), transparent);
+}
+.stage::after {
+  bottom: 0;
+  height: 110px;
+  background: linear-gradient(0deg, rgba(20, 23, 26, 0.66), transparent);
+}
+
+.caption {
+  position: absolute;
+  top: var(--s3);
+  left: var(--s4);
+  z-index: 2;
+  pointer-events: none;
+  max-width: 60%;
+}
+.caption h2 {
+  font-size: var(--fs-xl);
+  line-height: 1.02;
+}
+.caption h2 span {
+  display: block;
+  color: var(--p1);
+}
+.caption p {
+  margin: var(--s1) 0 0;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+  letter-spacing: 0.04em;
+}
+
+.tools {
+  position: absolute;
+  left: var(--s4);
+  bottom: var(--s3);
+  z-index: 2;
+  display: flex;
+  gap: var(--s1);
+  flex-wrap: wrap;
+  max-width: calc(100% - 90px);
+}
+
+.legend {
+  position: absolute;
+  right: 58px;
+  bottom: var(--s3);
+  z-index: 2;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.7;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-left: var(--s1);
+  vertical-align: -1px;
+}
+
+@media (max-width: 420px) {
+  .caption p {
+    display: none;
+  }
+  .legend {
+    display: none;
+  }
+}
+
+/* On desktop the nav rail already names the flat, so the model doesn't. */
+@media (min-width: 1100px) {
+  .caption {
+    display: none;
+  }
+  .stage::before {
+    height: 60px;
+  }
+}

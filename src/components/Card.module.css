@@ -1,0 +1,30 @@
+.card {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--s4);
+}
+.flush {
+  padding: 0;
+  overflow: hidden;
+}
+.accent {
+  border-left: 3px solid var(--p1);
+}
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+.title {
+  font-size: var(--fs-md);
+  letter-spacing: 0.06em;
+}
+.aside {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}

@@ -1,0 +1,48 @@
+.meta {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+  color: var(--text-2);
+  margin: 0;
+}
+.roomLink {
+  color: var(--text);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.row {
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+.row > * {
+  flex: 1 1 auto;
+}
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--s1);
+}
+.days button {
+  min-height: 40px;
+  padding: 0;
+}
+.place {
+  display: grid;
+  gap: var(--s3);
+}
+.apply {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s2);
+  align-items: end;
+}
+.label {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-3);
+  display: block;
+  margin-bottom: var(--s1);
+}
