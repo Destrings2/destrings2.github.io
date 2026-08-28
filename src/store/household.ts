@@ -11,6 +11,7 @@ import { buildPlan } from '@/domain/scheduler';
 import { HN, weekIndex, weekKey } from '@/domain/time';
 import { DEFAULT_CONFIG } from '@/domain/types';
 import type { Cadence, Chore, OccurrenceKey, PersonId, RoomId, WeekPlan } from '@/domain/types';
+import { createOutbox, type Outbox } from './outbox';
 import { indexedDbRepository, type Change, type Repository } from './repository';
 import type { HouseholdState, StoredWeek, TintMode } from './types';
 
@@ -62,9 +63,14 @@ function reconcile(state: HouseholdState): HouseholdState {
 interface HouseholdStore {
   state: HouseholdState;
   status: 'loading' | 'ready' | 'unsaved';
+  /** Set when a write was retried to exhaustion and given up on. */
+  writeFailed: string | null;
   hydrate(repo?: Repository): Promise<void>;
   /** Stop listening and drop any pending writes. Called on sign-out. */
   detach(): void;
+  /** Send everything now — on reconnect, or when the tab is being hidden. */
+  flushWrites(): void;
+  hasUnsentWrites(): boolean;
 
   weekFor(key: string): StoredWeek;
   currentWeek(): { key: string; week: StoredWeek };
@@ -101,36 +107,50 @@ interface HouseholdStore {
 
 let repository: Repository = indexedDbRepository;
 let unsubscribe: (() => void) | null = null;
-/** Coalesces the flood of writes a drag across the availability grid makes. */
-const pending = new Map<string, { change: Change; timer: ReturnType<typeof setTimeout> }>();
+let outbox: Outbox | null = null;
+/** A refresh arrived while writes were still queued; run it once they land. */
+let refreshDeferred = false;
+
+/** What a change is keyed on, so edits to the same thing collapse. */
+function outboxKey(change: Change): string {
+  switch (change.kind) {
+    case 'availability':
+      return `availability:${change.personId}`;
+    case 'week':
+      return `week:${change.weekKey}`;
+    case 'override':
+    case 'completion':
+      return `${change.kind}:${change.weekKey}:${change.occurrence}`;
+    default:
+      return change.kind;
+  }
+}
 
 export const useHousehold = create<HouseholdStore>((set, get) => {
-  /**
-   * Writes are debounced per change, keyed so that painting a grid coalesces
-   * into one write while a tick and a reshuffle stay separate.
-   */
+  async function refresh() {
+    const fresh = await repository.load();
+    if (fresh) set({ state: reconcile(fresh) });
+  }
+
+  function ensureOutbox(): Outbox {
+    outbox ??= createOutbox({
+      send: (change) => repository.commit(get().state, change),
+      onIdle: () => {
+        // Safe now: nothing local is waiting to be sent, so server state
+        // cannot overwrite an edit that has not reached it.
+        if (!refreshDeferred) return;
+        refreshDeferred = false;
+        void refresh();
+      },
+      onGaveUp: (change) => {
+        set({ writeFailed: outboxKey(change) });
+      },
+    });
+    return outbox;
+  }
+
   function persist(change: Change) {
-    const key =
-      change.kind === 'availability'
-        ? `availability:${change.personId}`
-        : change.kind === 'week'
-          ? `week:${change.weekKey}`
-          : change.kind === 'override' || change.kind === 'completion'
-            ? `${change.kind}:${change.weekKey}:${change.occurrence}`
-            : change.kind;
-
-    const existing = pending.get(key);
-    if (existing) clearTimeout(existing.timer);
-
-    const timer = setTimeout(() => {
-      pending.delete(key);
-      void repository.commit(get().state, change).catch(() => {
-        // A failed write leaves the change in memory. Phase 7 gives this a
-        // retry queue; for now the next edit to the same thing carries it.
-      });
-    }, 350);
-
-    pending.set(key, { change, timer });
+    ensureOutbox().enqueue(outboxKey(change), change);
   }
 
   function commit(change: Change, mutate: (draft: HouseholdState) => void) {
@@ -188,6 +208,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
   return {
     state: blankState(),
     status: 'loading',
+    writeFailed: null,
 
     async hydrate(repo) {
       if (repo && repo !== repository) {
@@ -203,20 +224,30 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
       get().currentWeek();
 
       // Someone else's edit lands: refetch rather than patch a cache by hand.
+      // But never on top of an edit of our own that has not been sent yet —
+      // that would quietly undo it.
       unsubscribe ??= repository.subscribe(() => {
-        void (async () => {
-          const fresh = await repository.load();
-          if (fresh) set({ state: reconcile(fresh) });
-        })();
+        if (outbox && !outbox.isIdle()) {
+          refreshDeferred = true;
+          return;
+        }
+        void refresh();
       });
     },
 
     detach() {
       unsubscribe?.();
       unsubscribe = null;
-      for (const { timer } of pending.values()) clearTimeout(timer);
-      pending.clear();
+      outbox?.clear();
+      outbox = null;
+      refreshDeferred = false;
     },
+
+    flushWrites() {
+      outbox?.flush();
+    },
+
+    hasUnsentWrites: () => (outbox ? !outbox.isIdle() : false),
 
     weekFor(key) {
       const existing = get().state.weeks[key];

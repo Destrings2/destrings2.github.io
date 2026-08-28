@@ -7,12 +7,16 @@ import { formatMins } from '@/domain/time';
 import { useWeek } from '@/hooks/useWeek';
 import { Meter } from '@/components/Meter';
 import { useHousehold } from '@/store/household';
+import { useSession } from '@/store/session';
 import styles from './SplitView.module.css';
 
 export function SplitView() {
   const state = useHousehold((s) => s.state);
   const { setDailyCap, resetLedger, resetAll, renamePeople, isLocalOnly } = useHousehold();
+  const writeFailed = useHousehold((s) => s.writeFailed);
   const localOnly = isLocalOnly();
+  const signOut = useSession((s) => s.signOut);
+  const householdName = useSession((s) => s.household?.name ?? null);
   const week = useWeek();
 
   const [names, setNames] = useState(() => state.people.map((p) => p.name));
@@ -22,8 +26,23 @@ export function SplitView() {
   const totalFree = free.reduce((s, f) => s + f, 0);
   const ledgerTotal = state.people.reduce((s, p) => s + (state.ledger[p.id] ?? 0), 0) || 1;
 
+  const givenUp = state.people.map((person, i) => {
+    const assigned = week.totals.byPerson[person.id] ?? 0;
+    const own = free[i] ?? 0;
+    return { name: person.name, pct: own ? Math.round((assigned / own) * 100) : 0 };
+  });
+
   return (
     <>
+      {writeFailed && (
+        <Card accent title="Not saving">
+          <p className={styles.note} style={{ marginTop: 0 }}>
+            A change couldn&rsquo;t be saved after several tries. Everything still works here, but
+            this device is out of step until the connection comes back.
+          </p>
+        </Card>
+      )}
+
       <Card title="This week">
         <div className={styles.kv}>
           <span>Jobs due</span>
@@ -47,17 +66,23 @@ export function SplitView() {
         <p className={styles.note}>
           {totalFree ? (
             <>
-              You each give up{' '}
-              <b>
-                {state.people
-                  .map((person, i) => {
-                    const assigned = week.totals.byPerson[person.id] ?? 0;
-                    const own = free[i] ?? 0;
-                    return `${own ? Math.round((assigned / own) * 100) : 0}%`;
-                  })
-                  .join(' and ')}
-              </b>{' '}
-              of your own free time. Those being equal is what fair means here.
+              {givenUp.length === 1 ? (
+                <>
+                  You give up <b>{givenUp[0]!.pct}%</b> of your own free time.
+                </>
+              ) : (
+                <>
+                  You each give up{' '}
+                  {givenUp.map((entry, i) => (
+                    <span key={entry.name}>
+                      {i > 0 && (i === givenUp.length - 1 ? ' and ' : ', ')}
+                      <b>{entry.pct}%</b>
+                      {givenUp.length > 2 ? ` (${entry.name})` : ''}
+                    </span>
+                  ))}{' '}
+                  of your own free time. Those being equal is what fair means here.
+                </>
+              )}
             </>
           ) : (
             'Add some free time under Time first.'
@@ -91,6 +116,21 @@ export function SplitView() {
           </Button>
         </div>
       </Card>
+
+      {!localOnly && (
+        <Card title="Household">
+          <div className={styles.kv}>
+            <span>Signed in to</span>
+            <span>{householdName ?? '—'}</span>
+          </div>
+          <p className={styles.note}>Changes sync to everyone in this household.</p>
+          <div style={{ marginTop: 'var(--s3)' }}>
+            <Button size="sm" onClick={() => void signOut()}>
+              Sign out
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card title="Names">
         <div className={styles.names}>

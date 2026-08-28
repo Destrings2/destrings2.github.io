@@ -27,6 +27,7 @@ function Household() {
   const status = useHousehold((s) => s.status);
   const hydrate = useHousehold((s) => s.hydrate);
   const detach = useHousehold((s) => s.detach);
+  const flushWrites = useHousehold((s) => s.flushWrites);
 
   useEffect(() => {
     if (stage === 'local') {
@@ -36,6 +37,23 @@ function Household() {
     }
     return () => detach();
   }, [stage, householdId, hydrate, detach]);
+
+  // Signal comes back, or the phone is put away mid-edit: send what is queued
+  // rather than waiting out a debounce that may never finish.
+  useEffect(() => {
+    const flush = () => flushWrites();
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') flushWrites();
+    };
+    window.addEventListener('online', flush);
+    document.addEventListener('visibilitychange', onHidden);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('online', flush);
+      document.removeEventListener('visibilitychange', onHidden);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [flushWrites]);
 
   if (status === 'loading') {
     return (
