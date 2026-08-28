@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AppShell } from '@/app/AppShell';
+import { AuthGate } from '@/features/auth/AuthGate';
 import { useHousehold } from '@/store/household';
 import styles from './App.module.css';
 
@@ -11,12 +12,15 @@ export default function App() {
     void hydrate();
   }, [hydrate]);
 
-  if (status === 'loading') {
-    return (
-      <div className={styles.boot}>
-        <span>the example home</span>
-      </div>
-    );
-  }
-  return <AppShell />;
+  return (
+    <AuthGate>
+      {status === 'loading' ? (
+        <div className={styles.boot}>
+          <span>the example home</span>
+        </div>
+      ) : (
+        <AppShell />
+      )}
+    </AuthGate>
+  );
 }
