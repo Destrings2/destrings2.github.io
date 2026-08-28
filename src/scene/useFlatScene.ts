@@ -39,6 +39,8 @@ export function useFlatScene(inputs: SceneInputs) {
   const api = useRef<{
     invalidate(): void;
     rebuildWalls(cut: number): void;
+    /** The home itself changed: everything built from it has to be remade. */
+    rebuildPlan(): void;
     applyTints(): void;
     applyLabels(): void;
     setFurniture(visible: boolean): void;
@@ -101,27 +103,41 @@ export function useFlatScene(inputs: SceneInputs) {
     const gLabels = new THREE.Group();
     scene.add(gWalls, gFloors, gFurniture, gLabels);
 
-    const plan = latest.current.plan;
-    const { roomMaterials, pickable } = buildFloors(gFloors, plan, materials);
+    // The plan is whatever has arrived so far. A household's own home is read
+    // from Postgres a moment after mount, so this is the starter flat first
+    // and the real one shortly after — everything built from it must be able
+    // to be built again.
+    let plan = latest.current.plan;
+    let { roomMaterials, pickable } = buildFloors(gFloors, plan, materials);
+    // What the scene currently stands for. The plan effect fires on mount as
+    // well as on a change, and rebuilding here would throw away the opening
+    // move the mount sets up.
     buildFurniture(gFurniture, plan);
     buildWalls(gWalls, plan, materials, latest.current.cut);
     gFurniture.visible = latest.current.showFurniture;
 
     // Ground plane with a hole where the stair drops through, plus a grid.
-    const groundShape = new THREE.Shape();
-    groundShape.moveTo(-42, -32);
-    groundShape.lineTo(48, -32);
-    groundShape.lineTo(48, 52);
-    groundShape.lineTo(-42, 52);
-    groundShape.closePath();
-    const hole = new THREE.Path();
-    hole.moveTo(0.96, 4.6);
-    hole.lineTo(1.78, 4.6);
-    hole.lineTo(1.78, 6.78);
-    hole.lineTo(0.96, 6.78);
-    hole.closePath();
-    groundShape.holes.push(hole);
-    const ground = new THREE.Mesh(new THREE.ShapeGeometry(groundShape), materials.ground);
+    // The hole follows the plan's own stair rather than one flat's numbers.
+    function groundGeometry(): THREE.ShapeGeometry {
+      const groundShape = new THREE.Shape();
+      groundShape.moveTo(-42, -32);
+      groundShape.lineTo(48, -32);
+      groundShape.lineTo(48, 52);
+      groundShape.lineTo(-42, 52);
+      groundShape.closePath();
+      const { x0, x1, yTop, yBot } = plan.stair;
+      if (x1 > x0 && yBot > yTop) {
+        const hole = new THREE.Path();
+        hole.moveTo(x0, yTop);
+        hole.lineTo(x1, yTop);
+        hole.lineTo(x1, yBot);
+        hole.lineTo(x0, yBot);
+        hole.closePath();
+        groundShape.holes.push(hole);
+      }
+      return new THREE.ShapeGeometry(groundShape);
+    }
+    const ground = new THREE.Mesh(groundGeometry(), materials.ground);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.16;
     ground.receiveShadow = true;
@@ -147,11 +163,22 @@ export function useFlatScene(inputs: SceneInputs) {
     head.rotation.z = -Math.PI / 2;
     head.position.x = 0.85;
     northGroup.add(head);
-    northGroup.position.set(6.4, -0.13, -12.2);
+    // Beside the far end of whatever home is loaded, not beside one of them.
+    function placeNorth() {
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const point of points) {
+        if (point.x > maxX) maxX = point.x;
+        if (-point.z > maxY) maxY = -point.z;
+      }
+      if (!Number.isFinite(maxX) || !Number.isFinite(maxY)) return;
+      northGroup.position.set(maxX + 1.35, -0.13, -(maxY - 1.2));
+    }
     scene.add(northGroup);
 
     // ---- camera rig ----------------------------------------------------
-    const points = planPoints(plan);
+    let points = planPoints(plan);
+    placeNorth();
     const initial = frameFor(plan, points, 1, latest.current.mode);
     const rig = {
       target: initial.target.clone(),
@@ -351,6 +378,27 @@ export function useFlatScene(inputs: SceneInputs) {
         buildWalls(gWalls, latest.current.plan, materials, cut);
         invalidate();
       },
+      rebuildPlan() {
+        if (latest.current.plan === plan) return;
+        plan = latest.current.plan;
+        ({ roomMaterials, pickable } = buildFloors(gFloors, plan, materials));
+        buildFurniture(gFurniture, plan);
+        buildWalls(gWalls, plan, materials, latest.current.cut);
+        gFurniture.visible = latest.current.showFurniture;
+        ground.geometry.dispose();
+        ground.geometry = groundGeometry();
+        points = planPoints(plan);
+        placeNorth();
+        // The new home is a different size and shape, so the old framing is
+        // not a view of it. Re-framed without animating: this runs when the
+        // household's own home first arrives, and sliding across from a flat
+        // the person never asked to see would be the wrong thing to show.
+        applyFraming(false);
+        applyCamera();
+        this.applyTints();
+        this.applyLabels();
+        invalidate();
+      },
       applyTints() {
         for (const room of latest.current.plan.rooms) {
           const material = roomMaterials[room.slug];
@@ -392,8 +440,8 @@ export function useFlatScene(inputs: SceneInputs) {
       rig.distance = goal.distance * 1.45;
       animating = true;
     }
-    api.current.applyTints();
-    api.current.applyLabels();
+    api.current!.applyTints();
+    api.current!.applyLabels();
     resize();
     applyCamera();
     invalidate();
@@ -418,6 +466,13 @@ export function useFlatScene(inputs: SceneInputs) {
     // The scene is built once; everything after is applied through `api`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The home itself arriving is not the same as a detail of it changing: the
+  // scene was built from whatever plan existed at mount, which for a signed-in
+  // household is the starter flat, replaced moments later by their own.
+  useEffect(() => {
+    api.current?.rebuildPlan();
+  }, [inputs.plan]);
 
   useEffect(() => {
     api.current?.rebuildWalls(inputs.cut);
