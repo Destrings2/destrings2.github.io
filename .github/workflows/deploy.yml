@@ -20,6 +20,11 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    # The Supabase variables live on the github-pages environment, and an
+    # environment's variables reach only the jobs that name it. Without this
+    # the build reads them as empty and silently produces an on-device-only
+    # app — which is what shipped before the guard below was fixed.
+    environment: github-pages
     steps:
       - uses: actions/checkout@v7
 
