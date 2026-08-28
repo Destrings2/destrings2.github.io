@@ -11,7 +11,7 @@ import { buildPlan } from '@/domain/scheduler';
 import { HN, weekIndex, weekKey } from '@/domain/time';
 import { DEFAULT_CONFIG } from '@/domain/types';
 import type { Cadence, Chore, OccurrenceKey, PersonId, RoomId, WeekPlan } from '@/domain/types';
-import { indexedDbRepository, type Repository } from './repository';
+import { indexedDbRepository, type Change, type Repository } from './repository';
 import type { HouseholdState, StoredWeek, TintMode } from './types';
 
 const PALETTE = ['#E8B93E', '#5FA394', '#B47CC7', '#D97C5A'];
@@ -63,6 +63,8 @@ interface HouseholdStore {
   state: HouseholdState;
   status: 'loading' | 'ready' | 'unsaved';
   hydrate(repo?: Repository): Promise<void>;
+  /** Stop listening and drop any pending writes. Called on sign-out. */
+  detach(): void;
 
   weekFor(key: string): StoredWeek;
   currentWeek(): { key: string; week: StoredWeek };
@@ -92,26 +94,50 @@ interface HouseholdStore {
   removeChore(id: string): void;
 
   resetLedger(): void;
-  resetAll(): void;
+  resetAll(): Promise<void>;
+  /** Whether this install is on-device only, and so safe to wipe. */
+  isLocalOnly(): boolean;
 }
 
 let repository: Repository = indexedDbRepository;
-let saveTimer: ReturnType<typeof setTimeout> | undefined;
+let unsubscribe: (() => void) | null = null;
+/** Coalesces the flood of writes a drag across the availability grid makes. */
+const pending = new Map<string, { change: Change; timer: ReturnType<typeof setTimeout> }>();
 
 export const useHousehold = create<HouseholdStore>((set, get) => {
-  /** Debounced write. Painting a grid fires this on every cell. */
-  function persist() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      void repository.save(get().state);
-    }, 400);
+  /**
+   * Writes are debounced per change, keyed so that painting a grid coalesces
+   * into one write while a tick and a reshuffle stay separate.
+   */
+  function persist(change: Change) {
+    const key =
+      change.kind === 'availability'
+        ? `availability:${change.personId}`
+        : change.kind === 'week'
+          ? `week:${change.weekKey}`
+          : change.kind === 'override' || change.kind === 'completion'
+            ? `${change.kind}:${change.weekKey}:${change.occurrence}`
+            : change.kind;
+
+    const existing = pending.get(key);
+    if (existing) clearTimeout(existing.timer);
+
+    const timer = setTimeout(() => {
+      pending.delete(key);
+      void repository.commit(get().state, change).catch(() => {
+        // A failed write leaves the change in memory. Phase 7 gives this a
+        // retry queue; for now the next edit to the same thing carries it.
+      });
+    }, 350);
+
+    pending.set(key, { change, timer });
   }
 
-  function commit(mutate: (draft: HouseholdState) => void) {
+  function commit(change: Change, mutate: (draft: HouseholdState) => void) {
     const draft = structuredClone(get().state);
     mutate(draft);
     set({ state: draft });
-    persist();
+    persist(change);
   }
 
   function derive(state: HouseholdState, key: string, overrides = {}): WeekPlan {
@@ -164,12 +190,32 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     status: 'loading',
 
     async hydrate(repo) {
-      if (repo) repository = repo;
+      if (repo && repo !== repository) {
+        unsubscribe?.();
+        unsubscribe = null;
+        repository = repo;
+      }
+      set({ status: 'loading' });
       const loaded = await repository.load();
       const state = loaded ? reconcile(loaded) : blankState();
       set({ state, status: 'ready' });
       // Make sure this week exists before anything renders against it.
       get().currentWeek();
+
+      // Someone else's edit lands: refetch rather than patch a cache by hand.
+      unsubscribe ??= repository.subscribe(() => {
+        void (async () => {
+          const fresh = await repository.load();
+          if (fresh) set({ state: reconcile(fresh) });
+        })();
+      });
+    },
+
+    detach() {
+      unsubscribe?.();
+      unsubscribe = null;
+      for (const { timer } of pending.values()) clearTimeout(timer);
+      pending.clear();
     },
 
     weekFor(key) {
@@ -178,7 +224,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
       const draft = structuredClone(get().state);
       const week = freeze(draft, key);
       set({ state: draft });
-      persist();
+      persist({ kind: 'week', weekKey: key });
       return week;
     },
 
@@ -192,7 +238,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     reshuffle(key) {
-      commit((draft) => {
+      commit({ kind: 'week', weekKey: key }, (draft) => {
         const previous = draft.weeks[key];
         if (previous) previous.overrides = {};
         rebuild(draft, key);
@@ -200,28 +246,32 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     toggleDone(weekKeyValue, occurrence) {
-      commit((draft) => {
-        const week = draft.weeks[weekKeyValue];
-        if (!week) return;
-        const entry = week.plan.find((e) => e.key === occurrence);
-        if (!entry) return;
-        const index = week.done.indexOf(occurrence);
-        if (index >= 0) {
-          week.done.splice(index, 1);
-          if (entry.personId)
-            draft.ledger[entry.personId] = (draft.ledger[entry.personId] ?? 0) - entry.mins;
-        } else {
-          week.done.push(occurrence);
-          if (entry.personId) {
-            draft.ledger[entry.personId] = (draft.ledger[entry.personId] ?? 0) + entry.mins;
-            draft.lastDoneBy[entry.choreId] = entry.personId;
+      const already = get().state.weeks[weekKeyValue]?.done.includes(occurrence) ?? false;
+      commit(
+        { kind: 'completion', weekKey: weekKeyValue, occurrence, added: !already },
+        (draft) => {
+          const week = draft.weeks[weekKeyValue];
+          if (!week) return;
+          const entry = week.plan.find((e) => e.key === occurrence);
+          if (!entry) return;
+          const index = week.done.indexOf(occurrence);
+          if (index >= 0) {
+            week.done.splice(index, 1);
+            if (entry.personId)
+              draft.ledger[entry.personId] = (draft.ledger[entry.personId] ?? 0) - entry.mins;
+          } else {
+            week.done.push(occurrence);
+            if (entry.personId) {
+              draft.ledger[entry.personId] = (draft.ledger[entry.personId] ?? 0) + entry.mins;
+              draft.lastDoneBy[entry.choreId] = entry.personId;
+            }
           }
-        }
-      });
+        },
+      );
     },
 
     place(weekKeyValue, occurrence, at) {
-      commit((draft) => {
+      commit({ kind: 'override', weekKey: weekKeyValue, occurrence }, (draft) => {
         const week = draft.weeks[weekKeyValue];
         if (!week) return;
         week.overrides[occurrence] = {
@@ -242,7 +292,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     assign(weekKeyValue, occurrence, personId) {
-      commit((draft) => {
+      commit({ kind: 'override', weekKey: weekKeyValue, occurrence }, (draft) => {
         const week = draft.weeks[weekKeyValue];
         if (!week) return;
         const existing = week.overrides[occurrence];
@@ -257,7 +307,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     skip(weekKeyValue, occurrence) {
-      commit((draft) => {
+      commit({ kind: 'override', weekKey: weekKeyValue, occurrence }, (draft) => {
         const week = draft.weeks[weekKeyValue];
         if (!week) return;
         const entry = week.plan.find((e) => e.key === occurrence);
@@ -277,7 +327,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     unskip(weekKeyValue, occurrence) {
-      commit((draft) => {
+      commit({ kind: 'override', weekKey: weekKeyValue, occurrence }, (draft) => {
         const week = draft.weeks[weekKeyValue];
         if (!week) return;
         delete week.overrides[occurrence];
@@ -286,7 +336,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     automate(weekKeyValue, occurrence) {
-      commit((draft) => {
+      commit({ kind: 'override', weekKey: weekKeyValue, occurrence }, (draft) => {
         const week = draft.weeks[weekKeyValue];
         if (!week) return;
         delete week.overrides[occurrence];
@@ -295,7 +345,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     renamePeople(names) {
-      commit((draft) => {
+      commit({ kind: 'members' }, (draft) => {
         names.forEach((name, i) => {
           const person = draft.people[i];
           if (person && name.trim()) person.name = name.trim();
@@ -305,14 +355,14 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     setAvailability(personId, grid) {
-      commit((draft) => {
+      commit({ kind: 'availability', personId }, (draft) => {
         draft.availability[personId] = grid;
         rebuildFuture(draft);
       });
     },
 
     applyPreset(personId, spec) {
-      commit((draft) => {
+      commit({ kind: 'availability', personId }, (draft) => {
         if (spec === null) {
           draft.availability[personId] = emptyGrid();
         } else {
@@ -327,20 +377,20 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     setDailyCap(mins) {
-      commit((draft) => {
+      commit({ kind: 'settings' }, (draft) => {
         draft.settings.dailyCap = mins;
         rebuildFuture(draft);
       });
     },
 
     setTint(tint) {
-      commit((draft) => {
+      commit({ kind: 'settings' }, (draft) => {
         draft.settings.tint = tint;
       });
     },
 
     addChore(input) {
-      commit((draft) => {
+      commit({ kind: 'chores' }, (draft) => {
         const chore: Chore = {
           id: `u${Date.now().toString(36)}`,
           roomId: input.roomId,
@@ -357,7 +407,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     toggleChore(id) {
-      commit((draft) => {
+      commit({ kind: 'chores' }, (draft) => {
         const chore = draft.chores.find((c) => c.id === id);
         if (chore) chore.enabled = !chore.enabled;
         rebuildFuture(draft);
@@ -365,22 +415,28 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     removeChore(id) {
-      commit((draft) => {
+      commit({ kind: 'chores' }, (draft) => {
         draft.chores = draft.chores.filter((c) => c.id !== id);
         rebuildFuture(draft);
       });
     },
 
     resetLedger() {
-      commit((draft) => {
+      commit({ kind: 'all' }, (draft) => {
         for (const person of draft.people) draft.ledger[person.id] = 0;
         draft.lastDoneBy = {};
       });
     },
 
-    resetAll() {
+    isLocalOnly: () => repository.kind === 'local',
+
+    async resetAll() {
+      // Only ever a local action. Wiping a shared household from one device,
+      // behind the other person's back, is not something to offer at all —
+      // so the button is not shown rather than failing after the fact.
+      if (repository.kind !== 'local') return;
+      await repository.clear();
       set({ state: blankState() });
-      void repository.clear();
       get().currentWeek();
     },
   };

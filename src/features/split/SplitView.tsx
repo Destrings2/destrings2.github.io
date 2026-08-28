@@ -11,7 +11,8 @@ import styles from './SplitView.module.css';
 
 export function SplitView() {
   const state = useHousehold((s) => s.state);
-  const { setDailyCap, resetLedger, resetAll, renamePeople } = useHousehold();
+  const { setDailyCap, resetLedger, resetAll, renamePeople, isLocalOnly } = useHousehold();
+  const localOnly = isLocalOnly();
   const week = useWeek();
 
   const [names, setNames] = useState(() => state.people.map((p) => p.name));
@@ -131,20 +132,22 @@ export function SplitView() {
           Grim jobs — the WC, the litter tray, the bins, the oven — alternate rather than always
           landing on the same person. Nothing loud is scheduled after 21:00.
         </p>
-        <div className={styles.actions}>
-          <Button
-            variant={confirming ? 'primary' : 'default'}
-            onClick={() => {
-              if (confirming) {
-                resetAll();
-                setConfirming(false);
-              } else setConfirming(true);
-            }}
-          >
-            {confirming ? 'Tap again to wipe' : 'Reset everything'}
-          </Button>
-          {confirming && <Button onClick={() => setConfirming(false)}>Cancel</Button>}
-        </div>
+        {localOnly && (
+          <div className={styles.actions}>
+            <Button
+              variant={confirming ? 'primary' : 'default'}
+              onClick={() => {
+                if (confirming) {
+                  void resetAll();
+                  setConfirming(false);
+                } else setConfirming(true);
+              }}
+            >
+              {confirming ? 'Tap again to wipe' : 'Reset everything'}
+            </Button>
+            {confirming && <Button onClick={() => setConfirming(false)}>Cancel</Button>}
+          </div>
+        )}
       </Card>
     </>
   );

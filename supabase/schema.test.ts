@@ -576,3 +576,31 @@ describe('the ledger', () => {
     expect(rows).toEqual([]);
   });
 });
+
+describe('realtime', () => {
+  it('publishes the tables that change while both people are looking', async () => {
+    const rows = await q<{ tablename: string }>(
+      `select tablename from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public'
+       order by tablename`,
+    );
+    expect(rows.map((r) => r.tablename)).toEqual([
+      'availability',
+      'chores',
+      'completions',
+      'households',
+      'members',
+      'overrides',
+      'week_plans',
+    ]);
+  });
+
+  it('leaves geometry out — it is not edited behind your back', async () => {
+    const rows = await q<{ tablename: string }>(
+      `select tablename from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public'
+         and tablename in ('levels', 'rooms', 'properties')`,
+    );
+    expect(rows).toEqual([]);
+  });
+});

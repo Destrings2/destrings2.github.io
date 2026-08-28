@@ -40,6 +40,17 @@ as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
 
+-- Supabase creates this publication for you; Realtime broadcasts whatever is
+-- in it. Created empty here so the migration that adds tables has something to
+-- add them to.
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end
+$$;
+
 grant usage on schema auth to anon, authenticated, service_role;
 grant select on auth.users to authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
