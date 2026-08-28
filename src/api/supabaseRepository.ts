@@ -212,51 +212,39 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
         );
         return;
 
-      case 'chores': {
-        // Chores are few and change rarely, so the whole set is reconciled
-        // rather than tracking which one moved.
-        const { data } = await client
-          .from('chores')
-          .select('id')
-          .eq('household_id', householdId)
-          .is('deleted_at', null);
-        const remote = new Set(((data ?? []) as { id: string }[]).map((c) => c.id));
-        const local = new Set(state.chores.map((c) => c.id));
-
-        const removed = [...remote].filter((id) => !local.has(id));
-        if (removed.length) {
+      case 'chore': {
+        if (change.op === 'remove') {
           // Soft delete: a hard one resurrects on the other device.
           await client
             .from('chores')
             .update({ deleted_at: new Date().toISOString() })
-            .in('id', removed);
+            .eq('id', change.id)
+            .eq('household_id', householdId);
+          return;
         }
 
-        const added = state.chores.filter((c) => !remote.has(c.id));
-        if (added.length) {
-          await client.from('chores').insert(
-            added.map((c) => ({
-              household_id: householdId,
-              room_id: c.roomId ? (idBySlug.get(c.roomId) ?? null) : null,
-              name: c.name,
-              mins: c.mins,
-              cadence: c.cadence,
-              noisy: c.noisy,
-              grim: c.grim,
-              enabled: c.enabled,
-            })),
-          );
+        const chore = state.chores.find((c) => c.id === change.id);
+        if (!chore) return;
+
+        const row = {
+          household_id: householdId,
+          room_id: chore.roomId ? (idBySlug.get(chore.roomId) ?? null) : null,
+          name: chore.name,
+          mins: chore.mins,
+          cadence: chore.cadence,
+          noisy: chore.noisy,
+          grim: chore.grim,
+          enabled: chore.enabled,
+        };
+
+        if (change.op === 'add') {
+          // Upsert rather than insert: a retried write after a response that
+          // never arrived must not create the chore twice.
+          await client.from('chores').upsert({ id: chore.id, ...row });
+          return;
         }
 
-        const existing = state.chores.filter((c) => remote.has(c.id));
-        await Promise.all(
-          existing.map((c) =>
-            client
-              .from('chores')
-              .update({ name: c.name, mins: c.mins, cadence: c.cadence, enabled: c.enabled })
-              .eq('id', c.id),
-          ),
-        );
+        await client.from('chores').update(row).eq('id', change.id).eq('household_id', householdId);
         return;
       }
 
@@ -345,21 +333,40 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
     commit,
 
     subscribe(onRemoteChange) {
-      channel?.unsubscribe();
-      // Realtime invalidates rather than patching: a change lands, the state
-      // is refetched. Patching a cache by hand from a change feed is where
-      // sync bugs live.
-      channel = client
-        .channel(`household:${householdId}`)
-        .on(
+      void channel?.unsubscribe();
+
+      // One binding per table. `postgres_changes` cannot watch a whole schema:
+      // without an explicit `table` the subscription is accepted, reports
+      // SUBSCRIBED, and then matches nothing — which is how this went unnoticed
+      // until two tabs were opened side by side.
+      //
+      // `availability` is keyed by member and has no household_id to filter on;
+      // RLS still limits what arrives to this household's rows.
+      const watched: { table: string; filter?: string }[] = [
+        { table: 'week_plans', filter: `household_id=eq.${householdId}` },
+        { table: 'overrides', filter: `household_id=eq.${householdId}` },
+        { table: 'completions', filter: `household_id=eq.${householdId}` },
+        { table: 'chores', filter: `household_id=eq.${householdId}` },
+        { table: 'members', filter: `household_id=eq.${householdId}` },
+        { table: 'households', filter: `id=eq.${householdId}` },
+        { table: 'availability' },
+      ];
+
+      let next = client.channel(`household:${householdId}`);
+      for (const { table, filter } of watched) {
+        // Realtime invalidates rather than patching: a change lands, the state
+        // is refetched. Patching a cache by hand from a change feed is where
+        // sync bugs live.
+        next = next.on(
           'postgres_changes',
-          { event: '*', schema: 'public', filter: `household_id=eq.${householdId}` },
+          { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) },
           () => onRemoteChange(),
-        )
-        .subscribe();
+        );
+      }
+      channel = next.subscribe();
 
       return () => {
-        channel?.unsubscribe();
+        void channel?.unsubscribe();
         channel = null;
       };
     },

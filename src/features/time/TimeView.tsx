@@ -58,7 +58,14 @@ export function TimeView() {
                   grid: grid.map((row) => [...row]),
                 };
                 paint(element);
-                event.currentTarget.setPointerCapture(event.pointerId);
+                // Capture keeps the drag alive when the finger leaves the
+                // grid. It throws if the pointer has already gone, which must
+                // not abandon the paint that has just started.
+                try {
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                } catch {
+                  /* the drag still works, it just stops at the grid's edge */
+                }
               }}
               onPointerMove={(event) => {
                 if (!painting.current) return;

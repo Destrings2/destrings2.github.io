@@ -275,7 +275,11 @@ export function useFlatScene(inputs: SceneInputs) {
     }
 
     const onPointerDown = (event: PointerEvent) => {
-      canvas.setPointerCapture(event.pointerId);
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        /* orbiting still works, it just stops at the canvas edge */
+      }
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       animating = false;
       travelled = 0;

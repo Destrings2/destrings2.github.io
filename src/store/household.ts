@@ -116,6 +116,8 @@ function outboxKey(change: Change): string {
   switch (change.kind) {
     case 'availability':
       return `availability:${change.personId}`;
+    case 'chore':
+      return `chore:${change.id}`;
     case 'week':
       return `week:${change.weekKey}`;
     case 'override':
@@ -421,9 +423,12 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     addChore(input) {
-      commit({ kind: 'chores' }, (draft) => {
+      // A real uuid rather than a local temporary: the row can then be written
+      // by id, and the same chore has one identity on every device.
+      const id = crypto.randomUUID();
+      commit({ kind: 'chore', id, op: 'add' }, (draft) => {
         const chore: Chore = {
-          id: `u${Date.now().toString(36)}`,
+          id,
           roomId: input.roomId,
           name: input.name,
           mins: input.mins,
@@ -438,7 +443,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     toggleChore(id) {
-      commit({ kind: 'chores' }, (draft) => {
+      commit({ kind: 'chore', id, op: 'update' }, (draft) => {
         const chore = draft.chores.find((c) => c.id === id);
         if (chore) chore.enabled = !chore.enabled;
         rebuildFuture(draft);
@@ -446,7 +451,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     removeChore(id) {
-      commit({ kind: 'chores' }, (draft) => {
+      commit({ kind: 'chore', id, op: 'remove' }, (draft) => {
         draft.chores = draft.chores.filter((c) => c.id !== id);
         rebuildFuture(draft);
       });

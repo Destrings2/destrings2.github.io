@@ -3,7 +3,7 @@ import { createOutbox } from './outbox';
 import type { Change } from './repository';
 
 const settings: Change = { kind: 'settings' };
-const chores: Change = { kind: 'chores' };
+const chores: Change = { kind: 'chore', id: 'abc', op: 'update' };
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());

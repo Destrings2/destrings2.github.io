@@ -45,7 +45,11 @@ export function CutRod({ value, min, max, onChange }: Props) {
       tabIndex={0}
       onPointerDown={(event) => {
         dragging.current = true;
-        event.currentTarget.setPointerCapture(event.pointerId);
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          /* dragging still works, it just stops at the rod's edge */
+        }
         fromEvent(event);
       }}
       onPointerMove={(event) => {

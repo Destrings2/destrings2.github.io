@@ -1,5 +1,5 @@
 import { del, get, set } from 'idb-keyval';
-import type { OccurrenceKey, PersonId } from '@/domain/types';
+import type { ChoreId, OccurrenceKey, PersonId } from '@/domain/types';
 import type { HouseholdState } from './types';
 
 /**
@@ -14,7 +14,12 @@ export type Change =
   | { kind: 'all' }
   | { kind: 'settings' }
   | { kind: 'members' }
-  | { kind: 'chores' }
+  /**
+   * One chore, named. Deliberately not "the chore set changed": reconciling a
+   * whole collection means a device holding a slightly stale list deletes
+   * whatever the other one just added.
+   */
+  | { kind: 'chore'; id: ChoreId; op: 'add' | 'update' | 'remove' }
   | { kind: 'availability'; personId: PersonId }
   | { kind: 'week'; weekKey: string }
   | { kind: 'override'; weekKey: string; occurrence: OccurrenceKey }
