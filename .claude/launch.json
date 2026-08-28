@@ -18,6 +18,19 @@
         "dev:local"
       ],
       "port": 5174
+    },
+    {
+      "name": "rota-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
     }
   ]
 }

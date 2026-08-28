@@ -1,0 +1,15 @@
+{
+  "name": "Rota — house & chores",
+  "short_name": "Rota",
+  "description": "A week of housework split so you each give up the same share of your own free time.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#15181B",
+  "theme_color": "#14171A",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
