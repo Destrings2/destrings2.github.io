@@ -66,6 +66,19 @@ function message(error: unknown): string {
 /** Which household this device last had open. */
 const LAST_HOUSEHOLD = 'rota:household';
 
+/**
+ * Storage that is allowed to be missing. A browser told to block site data
+ * throws on access rather than returning null, and that must not be the
+ * reason someone cannot sign in — the preference is a convenience.
+ */
+function rememberedHousehold(): string | null {
+  try {
+    return localStorage.getItem(LAST_HOUSEHOLD);
+  } catch {
+    return null;
+  }
+}
+
 export const useSession = create<SessionStore>((set, get) => ({
   stage: isSupabaseConfigured ? 'loading' : 'local',
   session: null,
@@ -132,7 +145,8 @@ export const useSession = create<SessionStore>((set, get) => ({
       }
 
       // Whichever one was last opened on this device, so switching sticks.
-      const remembered = households.find((h) => h.id === localStorage.getItem(LAST_HOUSEHOLD));
+      const lastOpened = rememberedHousehold();
+      const remembered = households.find((h) => h.id === lastOpened);
       set({ stage: 'ready', households, household: remembered ?? households[0]! });
     }
   },
