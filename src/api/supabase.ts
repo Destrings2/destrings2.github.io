@@ -30,20 +30,34 @@ export function supabase(): SupabaseClient {
 }
 
 /**
- * The invite code in a URL, from /join/CODE or ?join=CODE.
+ * Where the app is mounted. '/' locally; '/<repo>/' on a GitHub Pages project
+ * site. Every link the app builds has to carry it.
+ */
+export const BASE_PATH: string = import.meta.env.BASE_URL || '/';
+
+/**
+ * The invite code in a URL, from <base>/join/CODE or ?join=CODE.
  *
  * Takes the URL rather than reading `window` so it can be tested without a
- * browser, and so a magic-link redirect can be parsed before navigation.
+ * browser, and so a magic-link redirect can be parsed before navigation. The
+ * base is stripped first, because on Pages the path is /schedule/join/CODE
+ * rather than /join/CODE.
  */
-export function inviteCodeIn(href: string): string | null {
+export function inviteCodeIn(href: string, base: string = BASE_PATH): string | null {
   let url: URL;
   try {
     url = new URL(href);
   } catch {
     return null;
   }
-  const fromPath = url.pathname.match(/^\/join\/([A-Za-z0-9]{6,12})\/?$/);
+
+  const prefix = base.endsWith('/') ? base.slice(0, -1) : base;
+  const path =
+    prefix && url.pathname.startsWith(prefix) ? url.pathname.slice(prefix.length) : url.pathname;
+
+  const fromPath = path.match(/^\/join\/([A-Za-z0-9]{6,12})\/?$/);
   if (fromPath) return fromPath[1]!.toUpperCase();
+
   const fromQuery = url.searchParams.get('join');
   if (!fromQuery) return null;
   return /^[A-Za-z0-9]{6,12}$/.test(fromQuery) ? fromQuery.toUpperCase() : null;
@@ -54,8 +68,15 @@ export function inviteCodeFromUrl(): string | null {
   return inviteCodeIn(window.location.href);
 }
 
+/** An absolute URL to somewhere in this app, base path included. */
+export function appUrl(path: string): string {
+  const clean = path.startsWith('/') ? path.slice(1) : path;
+  const base = BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`;
+  return `${window.location.origin}${base}${clean}`;
+}
+
 /** Drop the invite out of the URL once it has been used. */
 export function clearInviteFromUrl() {
   if (typeof window === 'undefined') return;
-  window.history.replaceState(null, '', '/');
+  window.history.replaceState(null, '', BASE_PATH);
 }

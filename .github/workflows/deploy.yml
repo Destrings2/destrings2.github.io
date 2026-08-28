@@ -1,0 +1,86 @@
+name: Deploy to Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Only one deployment at a time, and let a run in progress finish rather than
+# cancelling it half-way through publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      # base_path is '/<repo>' for a project site and '/' for a user or
+      # custom-domain one. Vite wants exactly one trailing slash either way;
+      # concatenating blindly would give '//' on a user site.
+      - name: Work out the base path
+        id: base
+        run: |
+          raw='${{ steps.pages.outputs.base_path }}'
+          case "$raw" in
+            ''|'/') normalised='/' ;;
+            */)     normalised="$raw" ;;
+            *)      normalised="$raw/" ;;
+          esac
+          echo "path=$normalised" >> "$GITHUB_OUTPUT"
+          echo "Building for base path: $normalised"
+
+      - name: Build
+        env:
+          # Not secrets. The publishable key is designed to sit in a public
+          # bundle; what protects the data is row-level security and the
+          # invite, not this string being hard to find. Kept in repository
+          # variables so a fork builds without them and simply runs on-device.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # '/<repo>/' for a project site, '/' for a user or custom-domain one.
+          VITE_BASE_PATH: ${{ steps.base.outputs.path }}
+        run: npm run build
+
+      - name: Fail if the backend was not configured
+        run: |
+          if ! grep -rq "supabase.co" dist/assets/*.js; then
+            echo "::error::No Supabase URL in the bundle. Set the repository"
+            echo "::error::variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY,"
+            echo "::error::or the deployed app will only ever store data on-device."
+            exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

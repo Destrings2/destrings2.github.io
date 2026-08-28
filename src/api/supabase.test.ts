@@ -34,3 +34,36 @@ describe('inviteCodeIn', () => {
     expect(inviteCodeIn('')).toBeNull();
   });
 });
+
+describe('inviteCodeIn under a base path', () => {
+  // GitHub Pages serves a project site from /<repo>/, so every path the app
+  // sees is prefixed. Getting this wrong makes every invite link a dead end.
+  it('reads a code from a path behind a base', () => {
+    expect(inviteCodeIn('https://x.github.io/schedule/join/ABCD2345', '/schedule/')).toBe(
+      'ABCD2345',
+    );
+  });
+
+  it('still works when the base has no trailing slash', () => {
+    expect(inviteCodeIn('https://x.github.io/schedule/join/ABCD2345', '/schedule')).toBe(
+      'ABCD2345',
+    );
+  });
+
+  it('reads a code at the root when there is no base', () => {
+    expect(inviteCodeIn('https://rota.example/join/ABCD2345', '/')).toBe('ABCD2345');
+  });
+
+  it('still reads a code that arrives without the base', () => {
+    // Deliberately lenient. A misconfigured base would otherwise turn every
+    // invite link into a dead end, and there is nothing to protect here: the
+    // code is checked in the database, not by this parser.
+    expect(inviteCodeIn('https://x.github.io/join/ABCD2345', '/schedule/')).toBe('ABCD2345');
+  });
+
+  it('finds a query code regardless of the base', () => {
+    expect(inviteCodeIn('https://x.github.io/schedule/?join=ABCD2345', '/schedule/')).toBe(
+      'ABCD2345',
+    );
+  });
+});

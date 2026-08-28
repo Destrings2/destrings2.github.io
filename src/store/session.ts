@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { EXAMPLE_HOME_DOCUMENT } from '@/data/exampleHome';
 import { SEED_CHORES } from '@/data/seedChores';
 import {
+  appUrl,
   clearInviteFromUrl,
   inviteCodeFromUrl,
   isSupabaseConfigured,
@@ -116,9 +117,8 @@ export const useSession = create<SessionStore>((set, get) => ({
   async sendMagicLink(email) {
     set({ busy: true, error: null });
     try {
-      const redirect = get().pendingInvite
-        ? `${window.location.origin}/join/${get().pendingInvite}`
-        : window.location.origin;
+      const invite = get().pendingInvite;
+      const redirect = invite ? appUrl(`join/${invite}`) : appUrl('');
       const { error } = await supabase().auth.signInWithOtp({
         email: email.trim(),
         options: { emailRedirectTo: redirect },
@@ -163,7 +163,7 @@ export const useSession = create<SessionStore>((set, get) => ({
       const { data, error } = await client.auth.signUp({
         email: email.trim(),
         password,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: appUrl('') },
       });
       if (error) throw error;
       if (!data.session) set({ linkSentTo: email.trim() });
@@ -275,7 +275,7 @@ export const useSession = create<SessionStore>((set, get) => ({
       target_household: household.id,
     });
     const found = (existing as { code: string }[] | null)?.[0]?.code;
-    if (found) return `${window.location.origin}/join/${found}`;
+    if (found) return appUrl(`join/${found}`);
 
     const { data, error } = await client.rpc('create_invite', {
       target_household: household.id,
@@ -284,7 +284,7 @@ export const useSession = create<SessionStore>((set, get) => ({
       set({ error: message(error) });
       return null;
     }
-    return `${window.location.origin}/join/${data as string}`;
+    return appUrl(`join/${data as string}`);
   },
 
   dismissError: () => set({ error: null }),

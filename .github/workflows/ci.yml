@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, lint, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` honours the install-script approvals pinned in package.json.
+      # The embedded Postgres the schema tests run against needs its own, and
+      # they are per-platform: the runner installs the linux binary.
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      # Starts a real Postgres out of node_modules, applies every migration and
+      # exercises row-level security and the plpgsql. No Docker, no service
+      # container, no secrets — so it runs on a fork's pull request too.
+      - name: Schema tests
+        run: npm run test:db
+
+      - name: Build
+        run: npm run build
