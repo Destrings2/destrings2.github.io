@@ -21,9 +21,9 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -32,7 +32,7 @@ jobs:
 
       - name: Configure Pages
         id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       # base_path is '/<repo>' for a project site and '/' for a user or
       # custom-domain one. Vite wants exactly one trailing slash either way;
@@ -61,16 +61,34 @@ jobs:
           VITE_BASE_PATH: ${{ steps.base.outputs.path }}
         run: npm run build
 
+      # Checked against THIS project's URL, not the word "supabase": the
+      # client library ships a '*.supabase.co' hostname allowlist and an
+      # 'sb_publishable_' prefix check of its own, so grepping for either
+      # passes happily on a build that has no backend configured at all.
       - name: Fail if the backend was not configured
+        env:
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: |
-          if ! grep -rq "supabase.co" dist/assets/*.js; then
-            echo "::error::No Supabase URL in the bundle. Set the repository"
-            echo "::error::variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY,"
-            echo "::error::or the deployed app will only ever store data on-device."
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::Repository variables VITE_SUPABASE_URL and"
+            echo "::error::VITE_SUPABASE_ANON_KEY are not set, so the deployed app"
+            echo "::error::would store data on-device only, with no way to sign in."
+            echo "::error::Set them under Settings > Secrets and variables >"
+            echo "::error::Actions > Variables."
+            exit 1
+          fi
+          # The host is what actually has to reach the bundle; a variable that
+          # is set but not threaded through to the build fails here.
+          host=$(printf '%s' "$SUPABASE_URL" | sed -E 's#^https?://##; s#/.*##')
+          if ! grep -rqF "$host" dist/assets/*.js; then
+            echo "::error::$host is not in the built bundle, so the app cannot"
+            echo "::error::reach the backend. The build did not pick the"
+            echo "::error::variables up."
             exit 1
           fi
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -83,4 +101,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
