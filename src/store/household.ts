@@ -140,7 +140,28 @@ function outboxKey(change: Change): string {
 export const useHousehold = create<HouseholdStore>((set, get) => {
   async function refresh() {
     const fresh = await repository.load();
-    if (fresh) set({ state: reconcile(fresh) });
+    if (!fresh) return;
+
+    // Guarding before the fetch is not enough: it is what happens *during*
+    // it that undoes an edit. Pick a colour, the write lands, the echo of it
+    // starts a refetch — and if the next colour is picked while that refetch
+    // is in the air, the reply is a truthful account of a moment that has
+    // since passed, and applying it puts the old colour back. Which is why a
+    // colour had to be picked two or three times to stick.
+    if (outbox && !outbox.isIdle()) {
+      refreshDeferred = true;
+      return;
+    }
+
+    const next = reconcile(fresh);
+    // Postgres broadcasts a change to everyone subscribed, including whoever
+    // made it, so every edit came back as an echo and replaced the whole
+    // state with an identical copy. Nothing was wrong with the result, but
+    // every object identity changed, so the week was re-derived and the scene
+    // redrawn a second time a beat after each edit — which is what the
+    // flicker was. Same state, same objects, no render.
+    if (JSON.stringify(next) === JSON.stringify(get().state)) return;
+    set({ state: next });
   }
 
   function ensureOutbox(): Outbox {
