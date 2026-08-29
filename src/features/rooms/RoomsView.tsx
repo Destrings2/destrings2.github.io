@@ -28,6 +28,7 @@ export function RoomsView() {
   const [name, setName] = useState('');
   const [mins, setMins] = useState('10');
   const [cadence, setCadence] = useState<Cadence>('weekly');
+  const [dueOn, setDueOn] = useState('');
   /** The job just added, so the list can say where it went. */
   const [justAdded, setJustAdded] = useState<{ id: string; name: string } | null>(null);
   const addedRef = useRef<HTMLDivElement>(null);
@@ -55,6 +56,7 @@ export function RoomsView() {
       name: trimmed,
       mins: Math.max(1, Number(mins) || 10),
       cadence,
+      dueOn: cadence === 'once' ? dueOn || null : null,
     });
     setJustAdded({ id: added, name: trimmed });
     setName('');
@@ -132,6 +134,20 @@ export function RoomsView() {
                 Settings.
               </p>
             )}
+            {cadence === 'once' && (
+              <div className={styles.addDate}>
+                <Field label="Which week">
+                  {(id) => (
+                    <TextInput
+                      id={id}
+                      type="date"
+                      value={dueOn}
+                      onChange={(e) => setDueOn(e.target.value)}
+                    />
+                  )}
+                </Field>
+              </div>
+            )}
             <div className={styles.addRow}>
               <Field label="How often">
                 {(id) => (
@@ -179,11 +195,25 @@ export function RoomsView() {
               role="switch"
               className={styles.rotation}
               aria-checked={chore.enabled}
-              title={chore.enabled ? 'In the rotation' : 'Out of the rotation'}
+              // For something that happens once, "the rotation" means
+              // nothing: the switch is whether it is still outstanding.
+              title={
+                chore.cadence === 'once'
+                  ? chore.enabled
+                    ? 'Still to do'
+                    : 'Done'
+                  : chore.enabled
+                    ? 'In the rotation'
+                    : 'Out of the rotation'
+              }
               aria-label={
-                chore.enabled
-                  ? `Take ${chore.name} out of the rotation`
-                  : `Put ${chore.name} back in the rotation`
+                chore.cadence === 'once'
+                  ? chore.enabled
+                    ? `Mark ${chore.name} done`
+                    : `Put ${chore.name} back on the list`
+                  : chore.enabled
+                    ? `Take ${chore.name} out of the rotation`
+                    : `Put ${chore.name} back in the rotation`
               }
               onClick={() => toggleChore(chore.id)}
             >
@@ -198,6 +228,7 @@ export function RoomsView() {
               <span>{chore.name}</span>
               <small>
                 {formatMins(chore.mins)} · {CADENCE[chore.cadence].label}
+                {chore.cadence === 'once' && chore.dueOn ? ` · ${chore.dueOn}` : ''}
                 {chore.grim ? ' · rotates' : ''}
                 {chore.noisy ? ' · not late' : ''}
                 {chore.preferredBy

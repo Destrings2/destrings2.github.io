@@ -124,12 +124,22 @@ interface HouseholdStore {
   setTint(tint: TintMode): void;
 
   /** Returns the new chore's id, so the caller can point at what it added. */
-  addChore(input: { roomId: RoomId; name: string; mins: number; cadence: Cadence }): string;
+  addChore(input: {
+    roomId: RoomId;
+    name: string;
+    mins: number;
+    cadence: Cadence;
+    /** Only meaningful for a one-off: the week it is wanted in. */
+    dueOn?: string | null;
+  }): string;
   /** Change a job already on the list. Anything not named is left alone. */
   editChore(
     id: string,
     patch: Partial<
-      Pick<Chore, 'name' | 'mins' | 'cadence' | 'roomId' | 'noisy' | 'grim' | 'preferredBy'>
+      Pick<
+        Chore,
+        'name' | 'mins' | 'cadence' | 'roomId' | 'noisy' | 'grim' | 'preferredBy' | 'dueOn'
+      >
     >,
   ): void;
   toggleChore(id: string): void;
@@ -240,6 +250,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
       lastDoneBy: state.lastDoneBy,
       overrides,
       weekIndex: weekIndex(new Date(`${key}T12:00:00`)),
+      weekStart: key,
       config: { ...DEFAULT_CONFIG, dailyCap: state.settings.dailyCap },
     });
   }
@@ -314,7 +325,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
       // What this week would contain if it were planned right now. The stored
       // plan lists every occurrence — placed, unplaced and skipped alike — so
       // the two sets match exactly when nothing has moved.
-      const due = dueInstances(draft.chores, weekIndex(new Date(`${key}T12:00:00`)));
+      const due = dueInstances(draft.chores, weekIndex(new Date(`${key}T12:00:00`)), key);
       const planned = new Map(week.plan.map((entry) => [entry.key, entry.mins]));
       const sameJobs =
         due.length === planned.size &&
@@ -430,6 +441,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     },
 
     toggleDone(weekKeyValue, occurrence) {
+      let retire: string | null = null;
       const already = get().state.weeks[weekKeyValue]?.done.includes(occurrence) ?? false;
       commit(
         { kind: 'completion', weekKey: weekKeyValue, occurrence, added: !already },
@@ -450,8 +462,27 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
               draft.lastDoneBy[entry.choreId] = entry.personId;
             }
           }
+
+          // A one-off that has been done is finished, and must stop coming
+          // back in later weeks. Un-ticking it puts it back, because the only
+          // reason to un-tick is that it was not really done.
+          //
+          // This week is deliberately left alone: the job stays on the list,
+          // ticked, where it can be seen and undone. It is later weeks it
+          // must not reappear in, and those are re-planned on the next load.
+          const chore = draft.chores.find((c) => c.id === entry.choreId);
+          if (chore?.cadence === 'once') {
+            const done = week.done.includes(occurrence);
+            if (chore.enabled === done) {
+              chore.enabled = !done;
+              retire = chore.id;
+            }
+          }
         },
       );
+      // The completion and the job are two rows; the second only if a one-off
+      // just changed state.
+      if (retire) persist({ kind: 'chore', id: retire, op: 'update' });
     },
 
     place(weekKeyValue, occurrence, at) {
@@ -586,6 +617,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
           name: input.name,
           mins: input.mins,
           cadence: input.cadence,
+          dueOn: input.dueOn ?? null,
           noisy: false,
           grim: false,
           preferredBy: null,

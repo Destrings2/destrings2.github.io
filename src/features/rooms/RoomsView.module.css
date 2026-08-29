@@ -154,6 +154,9 @@
   grid-template-columns: 1fr 88px;
   gap: var(--s2);
 }
+.addDate {
+  margin-top: var(--s2);
+}
 .addRow {
   display: grid;
   grid-template-columns: 1fr auto auto;

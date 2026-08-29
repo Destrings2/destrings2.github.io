@@ -19,6 +19,7 @@ interface Row {
     noisy: boolean;
     grim: boolean;
     preferred_by: string | null;
+    due_on: string | null;
     enabled: boolean;
     seed_key: string | null;
   };
@@ -82,22 +83,29 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
    * nothing next to that, so it is asked for separately and given up on.
    */
   async function choresFor(id: string) {
-    const withPreference = await client
-      .from('chores')
-      .select(`${CHORE_COLUMNS}, preferred_by`)
-      .eq('household_id', id)
-      .is('deleted_at', null)
-      .order('created_at');
+    const read = (columns: string) =>
+      client
+        .from('chores')
+        .select(columns)
+        .eq('household_id', id)
+        .is('deleted_at', null)
+        .order('created_at');
 
-    // 42703: undefined_column. Anything else is a real failure and is raised.
-    if (!withPreference.error || withPreference.error.code !== '42703') return withPreference;
+    // Newest first, falling back a column at a time. 42703 is
+    // undefined_column; anything else is a real failure and is raised.
+    const missingColumn = (result: { error: { code?: string } | null }) =>
+      result.error?.code === '42703';
 
-    return client
-      .from('chores')
-      .select(CHORE_COLUMNS)
-      .eq('household_id', id)
-      .is('deleted_at', null)
-      .order('created_at');
+    const full = await read(`${CHORE_COLUMNS}, preferred_by, due_on`);
+    if (!missingColumn(full)) return full;
+
+    const withPreference = await read(`${CHORE_COLUMNS}, preferred_by`);
+    if (!missingColumn(withPreference)) return withPreference;
+
+    const withDate = await read(`${CHORE_COLUMNS}, due_on`);
+    if (!missingColumn(withDate)) return withDate;
+
+    return read(CHORE_COLUMNS);
   }
 
   async function load(): Promise<HouseholdState | null> {
@@ -211,7 +219,9 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
     return {
       version: 1,
       people,
-      chores: ((chores.data ?? []) as Row['chore'][]).map((c): Chore => ({
+      // Selected by a string built at runtime, so PostgREST cannot infer the
+      // row shape; the shape is Row['chore'] by construction of that string.
+      chores: ((chores.data ?? []) as unknown as Row['chore'][]).map((c): Chore => ({
         id: c.id,
         // Slug outside, uuid inside.
         roomId: c.room_id ? (slugById.get(c.room_id) ?? null) : null,
@@ -221,6 +231,7 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
         noisy: c.noisy,
         grim: c.grim,
         preferredBy: c.preferred_by ?? null,
+        dueOn: c.due_on ?? null,
         enabled: c.enabled,
       })),
       availability: grids,
@@ -310,6 +321,7 @@ export function supabaseRepository(client: SupabaseClient, householdId: string):
           noisy: chore.noisy,
           grim: chore.grim,
           preferred_by: chore.preferredBy,
+          due_on: chore.dueOn ?? null,
           enabled: chore.enabled,
         };
 

@@ -127,11 +127,24 @@ describe('averageWeekly', () => {
 });
 
 describe('cadence table', () => {
-  it('agrees with itself: a cadence recurring within the week has no week stride', () => {
-    for (const spec of Object.values(CADENCE)) {
-      if (spec.every === 0) expect(spec.perWeek).toBeGreaterThanOrEqual(1);
-      else expect(spec.perWeek).toBeCloseTo(1 / spec.every, 6);
+  it('agrees with itself, in each of the three shapes a cadence has', () => {
+    for (const [name, spec] of Object.entries(CADENCE)) {
+      if (spec.perWeek === 0) {
+        // Contributes nothing to a long-run average because it does not
+        // recur. Exactly one cadence may claim that.
+        expect(name).toBe('once');
+      } else if (spec.every === 0) {
+        // More often than weekly, so there is no stride in whole weeks.
+        expect(spec.perWeek).toBeGreaterThanOrEqual(1);
+      } else {
+        expect(spec.perWeek).toBeCloseTo(1 / spec.every, 6);
+      }
     }
+  });
+
+  it('has exactly one cadence that does not repeat', () => {
+    const oneOffs = Object.entries(CADENCE).filter(([, spec]) => spec.perWeek === 0);
+    expect(oneOffs.map(([name]) => name)).toEqual(['once']);
   });
 });
 

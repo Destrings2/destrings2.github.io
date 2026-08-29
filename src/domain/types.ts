@@ -8,7 +8,15 @@
  */
 
 export type Cadence =
-  'daily' | 'twice' | 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'biannual' | 'annual';
+  | 'once'
+  | 'daily'
+  | 'twice'
+  | 'weekly'
+  | 'fortnightly'
+  | 'monthly'
+  | 'quarterly'
+  | 'biannual'
+  | 'annual';
 
 export type PersonId = string;
 export type ChoreId = string;
@@ -48,6 +56,11 @@ export interface Chore {
    */
   preferredBy: PersonId | null;
   enabled: boolean;
+  /**
+   * The week a one-off is wanted in, as a date. Null means "whenever", which
+   * amounts to now. Everything that repeats ignores it.
+   */
+  dueOn?: string | null;
 }
 
 /** [day 0..6][hour slot 0..HN-1] — true where this person could do jobs. */

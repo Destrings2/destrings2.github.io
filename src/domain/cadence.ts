@@ -12,6 +12,10 @@ export interface CadenceSpec {
 }
 
 export const CADENCE: Record<Cadence, CadenceSpec> = {
+  // Happens once and then is finished. perWeek is 0 because a one-off is not
+  // a standing load: counting it would make the long-run average claim the
+  // household repeats a thing it does not.
+  once: { label: 'one-off', every: 0, perWeek: 0 },
   daily: { label: 'daily', every: 0, perWeek: 7 },
   twice: { label: '2× a week', every: 0, perWeek: 2 },
   weekly: { label: 'weekly', every: 1, perWeek: 1 },
@@ -23,6 +27,7 @@ export const CADENCE: Record<Cadence, CadenceSpec> = {
 };
 
 export const CADENCE_ORDER: readonly Cadence[] = [
+  'once',
   'daily',
   'twice',
   'weekly',

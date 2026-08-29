@@ -34,6 +34,7 @@ export function ChoreEditor({ chore, onDone }: Props) {
   const [noisy, setNoisy] = useState(chore.noisy);
   const [grim, setGrim] = useState(chore.grim);
   const [preferredBy, setPreferredBy] = useState(chore.preferredBy);
+  const [dueOn, setDueOn] = useState(chore.dueOn ?? '');
 
   const minutes = Math.max(1, Number(mins) || chore.mins);
   const trimmed = name.trim();
@@ -45,7 +46,8 @@ export function ChoreEditor({ chore, onDone }: Props) {
     roomId !== chore.roomId ||
     noisy !== chore.noisy ||
     grim !== chore.grim ||
-    preferredBy !== chore.preferredBy;
+    preferredBy !== chore.preferredBy ||
+    (cadence === 'once' && (dueOn || null) !== (chore.dueOn ?? null));
 
   function save() {
     if (!trimmed) return;
@@ -57,6 +59,9 @@ export function ChoreEditor({ chore, onDone }: Props) {
       noisy,
       grim,
       preferredBy,
+      // Only a one-off carries a date; anything that repeats has its own
+      // rhythm and would be confused by one lingering on it.
+      dueOn: cadence === 'once' ? dueOn || null : null,
     });
     onDone();
   }
@@ -103,6 +108,19 @@ export function ChoreEditor({ chore, onDone }: Props) {
             </Select>
           )}
         </Field>
+        {cadence === 'once' && (
+          <Field label="Which week">
+            {(id) => (
+              <TextInput
+                id={id}
+                type="date"
+                value={dueOn}
+                onChange={(e) => setDueOn(e.target.value)}
+              />
+            )}
+          </Field>
+        )}
+
         <Field label="Room">
           {(id) => (
             // A whole-home job has no room at all, so the select carries the

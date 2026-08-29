@@ -5,6 +5,7 @@ import {
   emptyGrid,
   gridFrom,
 } from '@/data/defaultAvailability';
+import { averageWeekly } from './totals';
 import { seedToChores } from '@/data/chores';
 import { STARTER_CHORES } from '@/data/starterChores';
 import { buildPlan, dueInstances, freeMinutes, runsFor, subtractBusy } from './scheduler';
@@ -155,6 +156,64 @@ describe('dueInstances', () => {
   it('skips disabled chores entirely', () => {
     const off: Chore[] = CHORES.map((c) => ({ ...c, enabled: false }));
     expect(dueInstances(off, 3)).toHaveLength(0);
+  });
+});
+
+describe('dueInstances — one-offs', () => {
+  const oneOff = (dueOn: string | null): Chore => ({
+    id: 'fix-the-shelf',
+    roomId: null,
+    name: 'Fix the shelf',
+    mins: 30,
+    cadence: 'once',
+    noisy: false,
+    grim: false,
+    preferredBy: null,
+    enabled: true,
+    dueOn,
+  });
+
+  it('is due once, on any day of the week it is wanted in', () => {
+    const occs = dueInstances([oneOff('2026-08-26')], 0, '2026-08-24');
+    expect(occs).toHaveLength(1);
+    expect(occs[0]!.days).toHaveLength(7);
+    expect(occs[0]!.mins).toBe(30);
+  });
+
+  it('waits for its week rather than turning up early', () => {
+    // Wanted a fortnight out; this week must not carry it.
+    expect(dueInstances([oneOff('2026-09-09')], 0, '2026-08-24')).toHaveLength(0);
+  });
+
+  it('is due on the Sunday of its week, not just before it', () => {
+    // The boundary: the week is Monday to Sunday inclusive.
+    expect(dueInstances([oneOff('2026-08-30')], 0, '2026-08-24')).toHaveLength(1);
+    expect(dueInstances([oneOff('2026-08-31')], 0, '2026-08-24')).toHaveLength(0);
+  });
+
+  it('does not lapse when the week it was wanted in has passed', () => {
+    // A one-off nobody got to is still wanted; it should not vanish quietly
+    // at midnight on Sunday.
+    expect(dueInstances([oneOff('2026-07-01')], 0, '2026-08-24')).toHaveLength(1);
+  });
+
+  it('is due now when no week was named', () => {
+    expect(dueInstances([oneOff(null)], 0, '2026-08-24')).toHaveLength(1);
+  });
+
+  it('stops once it is done, which is what turning it off records', () => {
+    const done: Chore = { ...oneOff('2026-08-26'), enabled: false };
+    expect(dueInstances([done], 0, '2026-08-24')).toHaveLength(0);
+  });
+
+  it('keeps the same key from week to week, so a tick is not orphaned', () => {
+    const a = dueInstances([oneOff(null)], 0, '2026-08-24')[0]!;
+    const b = dueInstances([oneOff(null)], 1, '2026-08-31')[0]!;
+    expect(a.key).toBe(b.key);
+  });
+
+  it('adds nothing to the long-run average', () => {
+    expect(averageWeekly([oneOff(null)])).toBe(0);
   });
 });
 

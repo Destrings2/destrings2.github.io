@@ -1,5 +1,5 @@
 import { CADENCE } from './cadence';
-import { H0, hash, nearDays } from './time';
+import { H0, hash, localISO, nearDays } from './time';
 import type {
   Availability,
   BusyMap,
@@ -34,6 +34,8 @@ export interface Occurrence {
 }
 
 export interface BuildInput {
+  /** The Monday this week starts on, YYYY-MM-DD. Only one-offs need it. */
+  weekStart?: string;
   people: Person[];
   chores: Chore[];
   availability: Availability;
@@ -101,11 +103,38 @@ export function runsFor(grid: HourGrid, busy: DayIntervals = []): Run[][] {
  * What falls due in week `wIdx`. Cadences longer than a week are spread by a
  * hash of the chore id, so the monthly jobs don't all land in the same week.
  */
-export function dueInstances(chores: Chore[], wIdx: number): Occurrence[] {
+/**
+ * What is due in a week.
+ *
+ * `weekStart` is the Monday, as YYYY-MM-DD. It is only needed by one-offs,
+ * which are the one kind of job that cares which week it is rather than
+ * merely how often. Left out, a one-off is treated as due now.
+ */
+export function dueInstances(chores: Chore[], wIdx: number, weekStart?: string): Occurrence[] {
   const out: Occurrence[] = [];
   for (const chore of chores) {
     if (!chore.enabled) continue;
     const spec = CADENCE[chore.cadence];
+
+    if (chore.cadence === 'once') {
+      // Due in the week it was asked for, and in every week after that until
+      // it is actually done — a one-off nobody got to should not quietly
+      // disappear at midnight on Sunday. Ticking it takes it off the list,
+      // which is what ends this.
+      const wanted = chore.dueOn ?? null;
+      if (wanted && weekStart) {
+        const sunday = new Date(`${weekStart}T12:00:00`);
+        sunday.setDate(sunday.getDate() + 6);
+        if (wanted > localISO(sunday)) continue;
+      }
+      out.push({
+        key: `${chore.id}#once`,
+        chore,
+        days: [0, 1, 2, 3, 4, 5, 6],
+        mins: chore.mins,
+      });
+      continue;
+    }
 
     if (spec.every === 0) {
       if (chore.cadence === 'daily') {
@@ -163,7 +192,7 @@ export function buildPlan(input: BuildInput): WeekPlan {
   const totalFree = free.reduce((s, f) => s + f, 0);
   const share = totalFree > 0 ? free.map((f) => f / totalFree) : people.map(() => 1 / n);
 
-  const instances = dueInstances(chores, input.weekIndex);
+  const instances = dueInstances(chores, input.weekIndex, input.weekStart);
   const live = instances.filter((i) => !overrides[i.key]?.skip);
   const totalMins = live.reduce((s, i) => s + i.mins, 0);
 

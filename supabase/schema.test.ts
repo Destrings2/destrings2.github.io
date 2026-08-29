@@ -1023,3 +1023,58 @@ describe('accent colours', () => {
     expect(members).toHaveLength(2);
   });
 });
+
+describe('one-off jobs', () => {
+  let household: string;
+
+  beforeAll(async () => {
+    household = await startHousehold(alice, 'One-offs', 'Alice');
+  });
+
+  it('accepts a job that happens once, with the week it is wanted in', async () => {
+    await db.as(alice, () =>
+      q(
+        `insert into chores (household_id, name, mins, cadence, due_on)
+         values ($1, 'Take the boxes to the tip', 40, 'once', date '2026-08-28')`,
+        [household],
+      ),
+    );
+    const [row] = await db.as(alice, () =>
+      q<{ cadence: string; due_on: string }>(
+        `select cadence, due_on::text as due_on from chores where household_id = $1`,
+        [household],
+      ),
+    );
+    expect(row?.cadence).toBe('once');
+    expect(row?.due_on).toBe('2026-08-28');
+  });
+
+  it('allows a one-off with no date, which means as soon as it fits', async () => {
+    await db.as(alice, () =>
+      q(
+        `insert into chores (household_id, name, mins, cadence)
+         values ($1, 'Bleed the radiator in the hall', 20, 'once')`,
+        [household],
+      ),
+    );
+    const [row] = await db.as(alice, () =>
+      q<{ due_on: string | null }>(
+        `select due_on from chores where household_id = $1 and mins = 20`,
+        [household],
+      ),
+    );
+    expect(row?.due_on).toBeNull();
+  });
+
+  it('still refuses a cadence that is not one of the nine', async () => {
+    await expect(
+      db.as(alice, () =>
+        q(
+          `insert into chores (household_id, name, mins, cadence)
+           values ($1, 'Whenever', 10, 'sometimes')`,
+          [household],
+        ),
+      ),
+    ).rejects.toThrow();
+  });
+});
