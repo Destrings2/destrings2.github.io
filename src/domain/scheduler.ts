@@ -3,6 +3,7 @@ import { H0, hash, localISO, nearDays } from './time';
 import type {
   Availability,
   BusyMap,
+  Carried,
   Chore,
   DayIntervals,
   HourGrid,
@@ -31,11 +32,15 @@ export interface Occurrence {
   /** Candidate days in preference order. One entry means the day is fixed. */
   days: number[];
   mins: number;
+  /** Set when this is here because it was missed in an earlier week. */
+  carriedFrom?: string;
 }
 
 export interface BuildInput {
   /** The Monday this week starts on, YYYY-MM-DD. Only one-offs need it. */
   weekStart?: string;
+  /** Jobs missed in an earlier week that are still wanted. */
+  carried?: Carried[];
   people: Person[];
   chores: Chore[];
   availability: Availability;
@@ -193,6 +198,24 @@ export function buildPlan(input: BuildInput): WeekPlan {
   const share = totalFree > 0 ? free.map((f) => f / totalFree) : people.map(() => 1 / n);
 
   const instances = dueInstances(chores, input.weekIndex, input.weekStart);
+
+  // A job missed earlier is wanted again — unless it is already due here in
+  // its own right, in which case the natural occurrence *is* the second
+  // chance and adding another would have the week ask for it twice. That is
+  // what makes anything weekly or oftener quietly look after itself.
+  const dueAnyway = new Set(instances.map((occurrence) => occurrence.chore.id));
+  for (const missed of input.carried ?? []) {
+    if (dueAnyway.has(missed.choreId)) continue;
+    const chore = chores.find((c) => c.id === missed.choreId);
+    if (!chore || !chore.enabled) continue;
+    instances.push({
+      key: `${chore.id}#carried`,
+      chore,
+      days: [0, 1, 2, 3, 4, 5, 6],
+      mins: chore.mins,
+      carriedFrom: missed.since,
+    });
+  }
   const live = instances.filter((i) => !overrides[i.key]?.skip);
   const totalMins = live.reduce((s, i) => s + i.mins, 0);
 
@@ -295,6 +318,7 @@ export function buildPlan(input: BuildInput): WeekPlan {
         mins: occurrence.mins,
         pinned: false,
         skipped: false,
+        ...(occurrence.carriedFrom ? { carriedFrom: occurrence.carriedFrom } : {}),
       });
       continue;
     }
@@ -316,6 +340,7 @@ export function buildPlan(input: BuildInput): WeekPlan {
       mins: occurrence.mins,
       pinned: o?.personId != null,
       skipped: false,
+      ...(occurrence.carriedFrom ? { carriedFrom: occurrence.carriedFrom } : {}),
     });
   }
 

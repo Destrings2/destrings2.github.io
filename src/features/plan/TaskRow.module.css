@@ -42,6 +42,12 @@
   color: var(--p1);
   margin-left: var(--s1);
 }
+/* Says why the week is heavier than it would otherwise be. Deliberately not
+   an alarm: the job was missed, which is ordinary. */
+.carried {
+  color: var(--text-3);
+  margin-left: var(--s1);
+}
 .mins {
   flex: 0 0 auto;
   font-family: var(--mono);

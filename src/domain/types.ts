@@ -103,6 +103,18 @@ export interface PlanEntry {
   mins: number;
   pinned: boolean;
   skipped: boolean;
+  /**
+   * The week this was originally due in, when it is here because it was
+   * missed then. Absent on everything due in its own right.
+   */
+  carriedFrom?: string;
+}
+
+/** A job that went undone in an earlier week and is still wanted. */
+export interface Carried {
+  choreId: ChoreId;
+  /** The week it was first missed — what the two-week limit counts from. */
+  since: string;
 }
 
 export interface PlanMeta {

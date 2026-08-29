@@ -12,7 +12,15 @@ import { STARTER_CHORES } from '@/data/starterChores';
 import { buildPlan, dueInstances, freeMinutes } from '@/domain/scheduler';
 import { HN, weekIndex, weekKey } from '@/domain/time';
 import { DEFAULT_CONFIG } from '@/domain/types';
-import type { Cadence, Chore, OccurrenceKey, PersonId, RoomId, WeekPlan } from '@/domain/types';
+import type {
+  Cadence,
+  Carried,
+  Chore,
+  OccurrenceKey,
+  PersonId,
+  RoomId,
+  WeekPlan,
+} from '@/domain/types';
 import { createOutbox, type Outbox } from './outbox';
 import { indexedDbRepository, type Change, type Repository } from './repository';
 import type { HouseholdState, StoredWeek, TintMode } from './types';
@@ -241,6 +249,57 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
     persist(change);
   }
 
+  /** Whole weeks from one Monday to another. */
+  function weeksApart(from: string, to: string): number {
+    const ms = new Date(`${to}T12:00:00`).getTime() - new Date(`${from}T12:00:00`).getTime();
+    return Math.round(ms / (7 * 864e5));
+  }
+
+  /**
+   * How long a missed job keeps asking. Two weeks, then it lapses back to its
+   * own rhythm — without a limit a job missed once would follow the household
+   * around until it was done, and a list nobody can finish is worse than a
+   * job that waits for next month.
+   */
+  const CARRY_WEEKS = 2;
+
+  /**
+   * What was wanted in an earlier week and never happened.
+   *
+   * Skipped jobs are not here: skipping is a decision, and undoing it behind
+   * someone's back would make the button a lie. Jobs that never got placed
+   * are, because "didn't fit" is the commonest way something does not happen
+   * and quietly dropping those would lose the most work of all. One-offs look
+   * after themselves — they stay due until ticked — so including them here
+   * would ask for them twice.
+   */
+  function carriedInto(state: HouseholdState, key: string): Carried[] {
+    const outstanding = new Map<string, string>();
+
+    for (const [weekKeyOf, week] of Object.entries(state.weeks)) {
+      if (weekKeyOf >= key) continue;
+      const age = weeksApart(weekKeyOf, key);
+      if (age < 1 || age > CARRY_WEEKS) continue;
+
+      const done = new Set(week.done);
+      for (const entry of week.plan) {
+        if (entry.skipped || done.has(entry.key)) continue;
+        const chore = state.chores.find((c) => c.id === entry.choreId);
+        if (!chore || !chore.enabled || chore.cadence === 'once') continue;
+
+        // Counted from the week it was first missed, not from the last time
+        // it was carried, so carrying cannot renew its own lease.
+        const since = entry.carriedFrom ?? weekKeyOf;
+        if (weeksApart(since, key) > CARRY_WEEKS) continue;
+
+        const already = outstanding.get(entry.choreId);
+        if (!already || since < already) outstanding.set(entry.choreId, since);
+      }
+    }
+
+    return [...outstanding].map(([choreId, since]) => ({ choreId, since }));
+  }
+
   function derive(state: HouseholdState, key: string, overrides = {}): WeekPlan {
     return buildPlan({
       people: state.people,
@@ -251,6 +310,7 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
       overrides,
       weekIndex: weekIndex(new Date(`${key}T12:00:00`)),
       weekStart: key,
+      carried: carriedInto(state, key),
       config: { ...DEFAULT_CONFIG, dailyCap: state.settings.dailyCap },
     });
   }
@@ -325,11 +385,22 @@ export const useHousehold = create<HouseholdStore>((set, get) => {
       // What this week would contain if it were planned right now. The stored
       // plan lists every occurrence — placed, unplaced and skipped alike — so
       // the two sets match exactly when nothing has moved.
+      // Due in its own right, plus anything carried in. Leaving the carried
+      // ones out would make every week with one look permanently out of date
+      // and re-plan itself on every single load.
       const due = dueInstances(draft.chores, weekIndex(new Date(`${key}T12:00:00`)), key);
+      const dueAnyway = new Set(due.map((occurrence) => occurrence.chore.id));
+      const wanted = new Map(due.map((occurrence) => [occurrence.key, occurrence.mins]));
+      for (const missed of carriedInto(draft, key)) {
+        if (dueAnyway.has(missed.choreId)) continue;
+        const chore = draft.chores.find((c) => c.id === missed.choreId);
+        if (chore?.enabled) wanted.set(`${chore.id}#carried`, chore.mins);
+      }
+
       const planned = new Map(week.plan.map((entry) => [entry.key, entry.mins]));
       const sameJobs =
-        due.length === planned.size &&
-        due.every((occurrence) => planned.get(occurrence.key) === occurrence.mins);
+        wanted.size === planned.size &&
+        [...wanted].every(([key2, mins]) => planned.get(key2) === mins);
 
       if (sameFreeTime && sameJobs) continue;
       rebuild(draft, key);

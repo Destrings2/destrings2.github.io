@@ -340,3 +340,84 @@ describe('a week frozen while the jobs were missing', () => {
     }
   });
 });
+
+describe('a job that went undone', () => {
+  /** Put a finished week behind us, with one job left untouched. */
+  function weekBehind(state: HouseholdState, key: string, opts: { skip?: boolean } = {}) {
+    const chore = state.chores.find((c) => c.cadence === 'monthly')!;
+    state.weeks[key] = {
+      plan: [
+        {
+          key: `${chore.id}#0`,
+          choreId: chore.id,
+          personId: 'a',
+          day: 2,
+          at: 18 * 60,
+          mins: chore.mins,
+          pinned: false,
+          skipped: opts.skip ?? false,
+        },
+      ],
+      meta: { free: [0, 0], share: [0.5, 0.5], target: [0, 0], assigned: [0, 0], totalMins: 0 },
+      done: [],
+      overrides: {},
+      generatedAt: Date.now(),
+    };
+    return chore;
+  }
+
+  const mondayBefore = (weeks: number) => {
+    const d = new Date();
+    const monday = new Date(d.getTime() - ((d.getDay() + 6) % 7) * 864e5);
+    monday.setDate(monday.getDate() - 7 * weeks);
+    return monday.toISOString().slice(0, 10);
+  };
+
+  it('comes back the following week, marked as carried', async () => {
+    const backend = fakeBackend();
+    const state = blankState();
+    const chore = weekBehind(state, mondayBefore(1));
+    backend.setServer(state);
+    await ready(backend);
+
+    const week = useHousehold.getState().currentWeek().week;
+    const carried = week.plan.filter((e) => e.carriedFrom);
+    expect(carried).toHaveLength(1);
+    expect(carried[0]!.choreId).toBe(chore.id);
+    expect(carried[0]!.carriedFrom).toBe(mondayBefore(1));
+  });
+
+  it('gives up after two weeks rather than following you about', async () => {
+    const backend = fakeBackend();
+    const state = blankState();
+    weekBehind(state, mondayBefore(3));
+    backend.setServer(state);
+    await ready(backend);
+
+    const week = useHousehold.getState().currentWeek().week;
+    expect(week.plan.filter((e) => e.carriedFrom)).toHaveLength(0);
+  });
+
+  it('does not come back if it was deliberately skipped', async () => {
+    const backend = fakeBackend();
+    const state = blankState();
+    weekBehind(state, mondayBefore(1), { skip: true });
+    backend.setServer(state);
+    await ready(backend);
+
+    const week = useHousehold.getState().currentWeek().week;
+    expect(week.plan.filter((e) => e.carriedFrom)).toHaveLength(0);
+  });
+
+  it('does not come back once it has been ticked', async () => {
+    const backend = fakeBackend();
+    const state = blankState();
+    const chore = weekBehind(state, mondayBefore(1));
+    state.weeks[mondayBefore(1)]!.done = [`${chore.id}#0`];
+    backend.setServer(state);
+    await ready(backend);
+
+    const week = useHousehold.getState().currentWeek().week;
+    expect(week.plan.filter((e) => e.carriedFrom)).toHaveLength(0);
+  });
+});

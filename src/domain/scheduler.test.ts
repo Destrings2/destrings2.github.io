@@ -570,3 +570,72 @@ describe('characterisation', () => {
     expect(summary).toMatchSnapshot();
   });
 });
+
+describe('buildPlan — jobs carried over', () => {
+  const monthly: Chore = {
+    id: 'oven',
+    roomId: null,
+    name: 'Oven deep clean',
+    mins: 45,
+    cadence: 'monthly',
+    noisy: false,
+    grim: false,
+    preferredBy: null,
+    enabled: true,
+  };
+  const weekly: Chore = { ...monthly, id: 'mop', name: 'Mop', mins: 15, cadence: 'weekly' };
+
+  const plan = (chores: Chore[], carried: NonNullable<BuildInput['carried']>, wIdx = 0) =>
+    buildPlan(input({ chores, carried, weekIndex: wIdx, weekStart: '2026-08-24' }));
+
+  it('asks again for something missed that is not due anyway', () => {
+    // Pick a week the monthly job is not naturally due in.
+    let quiet = -1;
+    for (let w = 0; w < 8; w++) {
+      if (dueInstances([monthly], w).length === 0) {
+        quiet = w;
+        break;
+      }
+    }
+    expect(quiet).toBeGreaterThanOrEqual(0);
+
+    const without = plan([monthly], [], quiet);
+    const with_ = plan([monthly], [{ choreId: 'oven', since: '2026-08-17' }], quiet);
+
+    expect(without.plan).toHaveLength(0);
+    expect(with_.plan).toHaveLength(1);
+    expect(with_.plan[0]!.carriedFrom).toBe('2026-08-17');
+    expect(with_.plan[0]!.mins).toBe(45);
+  });
+
+  it('does not ask twice when the job is due this week anyway', () => {
+    // This is what makes anything weekly or oftener look after itself: the
+    // occurrence it was going to get *is* the second chance.
+    const carried = plan([weekly], [{ choreId: 'mop', since: '2026-08-17' }]);
+    expect(carried.plan.filter((e) => e.choreId === 'mop')).toHaveLength(1);
+    expect(carried.plan[0]!.carriedFrom).toBeUndefined();
+  });
+
+  it('counts towards the week, so the split accounts for it', () => {
+    const quiet = [0, 1, 2, 3].find((w) => dueInstances([monthly], w).length === 0)!;
+    const with_ = plan([monthly], [{ choreId: 'oven', since: '2026-08-17' }], quiet);
+    expect(with_.meta.totalMins).toBe(45);
+  });
+
+  it('ignores a carried job that has since been turned off', () => {
+    const off = { ...monthly, enabled: false };
+    const quiet = [0, 1, 2, 3].find((w) => dueInstances([monthly], w).length === 0)!;
+    expect(plan([off], [{ choreId: 'oven', since: '2026-08-17' }], quiet).plan).toHaveLength(0);
+  });
+
+  it('ignores a carried job that no longer exists', () => {
+    const quiet = [0, 1, 2, 3].find((w) => dueInstances([monthly], w).length === 0)!;
+    expect(plan([], [{ choreId: 'gone', since: '2026-08-17' }], quiet).plan).toHaveLength(0);
+  });
+
+  it('keys a carried job apart from its natural occurrence', () => {
+    const quiet = [0, 1, 2, 3].find((w) => dueInstances([monthly], w).length === 0)!;
+    const carried = plan([monthly], [{ choreId: 'oven', since: '2026-08-17' }], quiet);
+    expect(carried.plan[0]!.key).toContain('carried');
+  });
+});

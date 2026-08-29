@@ -36,6 +36,11 @@ export function TaskRow({ entry, done, onOpen, onToggle, showPerson = true }: Pr
         <span className={styles.name}>
           {chore.name}
           {entry.pinned && <span className={styles.pin}>› pinned</span>}
+          {entry.carriedFrom && (
+            <span className={styles.carried} title={`Was due the week of ${entry.carriedFrom}`}>
+              › carried over
+            </span>
+          )}
         </span>
         <span className={styles.meta}>{bits.join(' · ')}</span>
       </button>
